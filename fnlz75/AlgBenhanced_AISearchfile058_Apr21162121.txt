@@ -1,0 +1,9 @@
+USER = fnlz75 (Morgan Rosca),
+ALGORITHM CODE = PS, NAME OF CITY-FILE = AISearchfile058.txt,
+SIZE = 58, TOUR LENGTH = 82506,
+0,22,33,30,5,57,28,50,42,49,2,20,53,12,13,55,19,41,11,27,6,37,23,16,38,35,34,51,18,21,26,14,17,43,32,10,45,24,54,36,47,9,8,25,40,4,15,31,56,46,29,44,52,48,7,39,3,1,
+NOTE = ACO-PSO Hybrid. PSO Params: theta=0.75, alpha=1.5, beta=1.5, delta=2. ACO Params: rho=0.1, q=100.0, init_ph=0.1. Pheromones bias target generation.
+The parameter values are 'max_it' = 1000 and 'num_parts' = 174.
+RUN-TIME = 13.9 seconds.
+DATE-TIME = 21/04/2025-16:21:21.
+CERTIFICATE = 2805.

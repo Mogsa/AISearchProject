@@ -1,0 +1,9 @@
+USER = fnlz75 (Morgan Rosca),
+ALGORITHM CODE = PS, NAME OF CITY-FILE = AISearchfile058.txt,
+SIZE = 58, TOUR LENGTH = 27728,
+0,9,50,18,38,51,16,33,22,12,8,21,48,14,35,53,46,34,45,13,23,26,20,29,19,56,15,55,31,49,43,32,17,10,6,2,42,25,41,40,11,37,30,52,39,44,5,27,28,1,57,7,4,54,24,47,36,3,
+NOTE = Enhanced ACO-PSO Hybrid with anti-stagnation strategies. Base PSO Params: theta=0.75, alpha=1.5, beta=1.5, delta=2. ACO Params: rho=0.1, q=100.0, init_ph=0.1. Anti-stagnation strategies: Multi-swarm with diversified parameters, 2-opt local search, simulated annealing acceptance, particle resetting, stagnation detection, adaptive parameters, and information exchange between swarms.
+The parameter values are 'max_it' = 1000 and 'num_parts' = 290.
+RUN-TIME = 37.5 seconds.
+DATE-TIME = 21/04/2025-16:28:51.
+CERTIFICATE = 2815.

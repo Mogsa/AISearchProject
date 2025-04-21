@@ -1,0 +1,9 @@
+USER = fnlz75 (Morgan Rosca),
+ALGORITHM CODE = PS, NAME OF CITY-FILE = AISearchfile058.txt,
+SIZE = 58, TOUR LENGTH = 55555,
+0,3,1,47,24,54,57,4,28,27,5,44,48,34,35,38,46,20,13,45,23,56,53,22,21,14,11,41,25,6,2,37,40,42,29,17,32,43,49,55,15,31,10,50,12,16,9,8,33,30,52,39,36,7,51,26,19,18,
+NOTE = PSO with 2-opt local search. Swarm parameters: theta = 0.6, alpha = 1.2, beta = 1.2, delta = 40.0. 2-opt is applied at the end to improve solution quality.
+The parameter values are 'max_it' = 1000 and 'num_parts' = 174.
+RUN-TIME = 9.3 seconds.
+DATE-TIME = 21/04/2025-16:05:08.
+CERTIFICATE = 2646.

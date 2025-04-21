@@ -1,0 +1,9 @@
+USER = fnlz75 (Morgan Rosca),
+ALGORITHM CODE = PS, NAME OF CITY-FILE = AISearchfile058.txt,
+SIZE = 58, TOUR LENGTH = 83421,
+0,13,51,37,40,41,42,56,20,23,43,34,24,39,9,2,18,21,14,28,50,30,22,54,4,8,7,17,49,55,19,29,26,1,6,35,46,12,45,33,27,48,47,44,57,31,10,16,5,52,53,36,3,25,11,32,15,38,
+NOTE = Enhanced PSO with dynamic parameters and swarm shaking. Parameters: max_it=1000, num_parts=174, w=0.4-0.9, α=1.0-2.0, β=1.0-2.0, stagnation_iter=100
+The parameter values are 'max_it' = 1000 and 'num_parts' = 174.
+RUN-TIME = 9.8 seconds.
+DATE-TIME = 21/04/2025-15:53:31.
+CERTIFICATE = 2652.
