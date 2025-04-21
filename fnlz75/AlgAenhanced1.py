@@ -357,20 +357,15 @@ added_note = ""
 ############ END OF SECTOR 9 (IGNORE THIS COMMENT)
 
 # ----- 2-opt Implementation -----
-# (Assumed to be present and correct from your AlgAenhanced.py)
 def calculate_tour_length(tour, dist_matrix):
     """Calculates the length of a given tour."""
     length = 0
     num_cities_in_tour = len(tour)
     if num_cities_in_tour < 2:
         return 0
-    try:
-        for i in range(num_cities_in_tour - 1):
-            length += dist_matrix[tour[i]][tour[i + 1]]
-        length += dist_matrix[tour[num_cities_in_tour - 1]][tour[0]]
-    except IndexError:
-        # print(f"*** Error: IndexError during tour length calculation. Tour: {tour}")
-        return float('inf')
+    for i in range(num_cities_in_tour - 1):
+        length += dist_matrix[tour[i]][tour[i + 1]]
+    length += dist_matrix[tour[num_cities_in_tour - 1]][tour[0]] # Use num_cities_in_tour
     return length
 
 def two_opt(tour, dist_matrix):
@@ -381,281 +376,256 @@ def two_opt(tour, dist_matrix):
 
     best_tour = tour[:]
     best_length = calculate_tour_length(best_tour, dist_matrix)
-    if best_length == float('inf'): return tour, best_length
-
     improvement_found = True
-    while improvement_found:
+    
+    # Limit 2-opt iterations for performance if needed, e.g., max_swaps = num_cities_in_tour * 5
+    # swap_count = 0 
+
+    while improvement_found: # and swap_count < max_swaps:
         improvement_found = False
-        # Iterate through all distinct pairs of edges to consider swapping
-        for i in range(num_cities_in_tour - 1): # First edge is (i, i+1)
-             # Ensure i+1 wraps around correctly
-            i_plus_1 = (i + 1) % num_cities_in_tour
-            for j in range(i + 2, num_cities_in_tour): # Second edge is (j, j+1)
-                 # Ensure j+1 wraps around correctly
-                j_plus_1 = (j + 1) % num_cities_in_tour
-                # Avoid adjacent edges which cannot be swapped in 2-opt
-                if j_plus_1 == i: continue
+        for i in range(num_cities_in_tour - 2):
+            for j in range(i + 2, num_cities_in_tour):
+                j_next = (j + 1) % num_cities_in_tour
+                node_i, node_i_plus_1 = best_tour[i], best_tour[i+1]
+                node_j, node_j_next = best_tour[j], best_tour[j_next]
 
-                node_i, node_i_plus_1 = best_tour[i], best_tour[i_plus_1]
-                node_j, node_j_next = best_tour[j], best_tour[j_plus_1] # Use j_plus_1 here
+                # Calculate distance change
+                original_dist = dist_matrix[node_i][node_i_plus_1] + dist_matrix[node_j][node_j_next]
+                new_dist = dist_matrix[node_i][node_j] + dist_matrix[node_i_plus_1][node_j_next]
 
-                # Check indices before accessing dist_matrix
-                if not (0 <= node_i < num_cities and 0 <= node_i_plus_1 < num_cities and \
-                        0 <= node_j < num_cities and 0 <= node_j_next < num_cities):
-                     # print(f"*** Error: Invalid node indices in 2-opt: {node_i, node_i_plus_1, node_j, node_j_next}")
-                     continue
-
-                try:
-                    original_dist = dist_matrix[node_i][node_i_plus_1] + dist_matrix[node_j][node_j_next]
-                    # The swapped edges are (i, j) and (i+1, j+1)
-                    new_dist = dist_matrix[node_i][node_j] + dist_matrix[node_i_plus_1][node_j_next]
-                except IndexError:
-                    # print(f"*** Error: IndexError accessing dist_matrix in 2-opt for nodes {node_i, node_i_plus_1, node_j, node_j_next}")
-                    continue
-
-                if new_dist < original_dist - 1e-9:
-                    # Reverse the segment between i+1 and j (inclusive)
-                    # Handle wrap-around case for reversal
-                    if i < j :
-                       best_tour[i+1:j+1] = best_tour[i+1:j+1][::-1]
-                    else: # Wrap around case i > j (e.g., swap edge (n-1,0) with (1,2))
-                       # Segment is tour[i+1:] + tour[:j+1]
-                       segment = best_tour[i+1:] + best_tour[:j+1]
-                       segment.reverse()
-                       best_tour[i+1:] = segment[:len(best_tour) - (i+1)]
-                       best_tour[:j+1] = segment[len(best_tour) - (i+1):]
-
-
+                if new_dist < original_dist:
+                    # Perform swap
+                    best_tour[i+1:j+1] = best_tour[i+1:j+1][::-1]
                     best_length += (new_dist - original_dist)
                     improvement_found = True
-                    break # Exit inner loop (j)
+                    # swap_count += 1
+                    break # Exit inner loop (j) - first improvement
             if improvement_found:
-                break # Exit outer loop (i)
+                break # Exit outer loop (i) - restart search
 
-    # Final length verification (optional but recommended)
-    # final_calc_length = calculate_tour_length(best_tour, dist_matrix)
-    # if abs(best_length - final_calc_length) > 1e-6:
-    #     best_length = final_calc_length
-
+    # Ensure integer length for consistency with assignment reqs
     return best_tour, int(round(best_length))
 
 
 # ----- MMAS PARAMETERS -----
+# Use num_cities from the outer scope
 num_ants = 25
-max_it = 800             
+
+# Use num_ants calculated above
+max_it = 200              # max iterations
 
 alpha = 1.0                 # pheromone importance
-beta  = 2.0                 # heuristic importance (visibility)
-rho   = 0.5                 # pheromone evaporation rate
+beta  = 3.0                 # heuristic importance (visibility) - Adjusted
+rho   = 0.8                 # pheromone evaporation rate (0<rho<=1) - Adjusted
+# Q and elitist_weight are not used in this MMAS version
 
 p_best = 0.05               # Parameter for tau_min heuristic calculation
 tau_max = 0.0
-tau_min = 1e-9
+tau_min = 1e-9              # Initialize with a very small positive value
 stagnation_counter = 0
-stagnation_limit = 50      # Increased limit potentially needed with more iterations
-reset_pheromone_on_stagnation = True # 
-
-# --- Enhancement Parameters ---
-candidate_list_size = 20    # Size of the nearest neighbor list (k)
-lambda_vis = 0.5            # Weight for adaptive visibility heuristic (TUNE THIS)
+stagnation_limit = 50       # Iterations without improvement to trigger reinit
+reset_pheromone_on_stagnation = True
 
 # ---- helper structures ----
+# Use dist_matrix from the outer scope
+# visibility matrix η_{ij} = 1/d_{ij}
 visibility = [[0 if i == j else 1.0 / (dist_matrix[i][j] if dist_matrix[i][j] != 0 else 1e-9)
                for j in range(num_cities)] for i in range(num_cities)]
 
+# best tour trackers
 best_tour = None
-best_length = float('inf')
+best_length = float('inf') # Use float for potentially large/inf values
 
 # ----- Initial Best Tour Estimate (for tau_max) -----
-# (Code for calculating initial_nn_tour and initial_nn_length using NN + 2-opt
-# is assumed to be present and correct from your AlgAenhanced.py within these lines)
-# --- Start: Ensure this NN + 2-opt calculation block is present ---
-initial_nn_tour = None
-initial_nn_length = float('inf')
+# Simple Greedy NN from city 0
 if num_cities > 0:
-    # (NN + 2-opt calculation logic as provided in previous turns...)
-    # ... (ensure this block correctly calculates initial_nn_tour and initial_nn_length) ...
-    # --- Example placeholder ---
-    initial_nn_tour = list(range(num_cities)) # Placeholder - use actual NN+2opt code
-    initial_nn_length = float(calculate_tour_length(initial_nn_tour, dist_matrix))
-    if initial_nn_length <= 0 or initial_nn_length == float('inf'): initial_nn_length = 1.0
-# --- End: Ensure NN + 2-opt calculation block is present ---
+    initial_nn_tour = [0]
+    visited_nn = {0}
+    current_nn_city = 0
+    initial_nn_length = 0.0 # Use float for calculation
+    if num_cities > 1:
+        while len(visited_nn) < num_cities:
+            nearest_neighbor = -1
+            min_dist = float('inf')
+            for neighbor in range(num_cities):
+                if neighbor not in visited_nn:
+                    dist = dist_matrix[current_nn_city][neighbor]
+                    if dist < min_dist:
+                        min_dist = dist
+                        nearest_neighbor = neighbor
+            if nearest_neighbor != -1:
+                initial_nn_tour.append(nearest_neighbor)
+                visited_nn.add(nearest_neighbor)
+                if min_dist != float('inf'): initial_nn_length += min_dist # Add distance if found
+                current_nn_city = nearest_neighbor
+            else: # Should not happen in complete graph
+                 # Fallback: add remaining unvisited randomly
+                 remaining = list(set(range(num_cities)) - visited_nn)
+                 random.shuffle(remaining)
+                 initial_nn_tour.extend(remaining)
+                 initial_nn_length = calculate_tour_length(initial_nn_tour, dist_matrix) # Recalculate length
+                 print("*** warning: Greedy NN failed, using random tour for init length.")
+                 break
+        # Close the tour
+        if initial_nn_tour: # Check if tour is not empty
+             initial_nn_length += dist_matrix[initial_nn_tour[-1]][initial_nn_tour[0]]
+        else:
+             initial_nn_length = 0
 
-    # ----- Initialize MMAS Pheromone Bounds (Heuristic Initialization) -----
-    print(f"   Initializing MMAS bounds based on NN+2-opt length: {initial_nn_length}")
-    tau_max = 1.0 / (rho * initial_nn_length) if rho * initial_nn_length != 0 else 1.0
+    # Apply 2-opt to the initial greedy tour for a better estimate
+    initial_nn_tour, initial_nn_length = two_opt(initial_nn_tour, dist_matrix)
+    initial_nn_length = float(initial_nn_length) # Ensure float
+
+    if initial_nn_length <= 0: initial_nn_length = 1.0 # Avoid division by zero
+
+    # ----- Initialize MMAS Pheromone Bounds -----
+    tau_max = 1.0 / (rho * initial_nn_length)
+    # Simple heuristic for tau_min
     tau_min = tau_max / (2.0 * num_cities) if num_cities > 0 else tau_max / 2.0
-    tau_min = max(tau_min, 1e-9)
-    print(f"   Calculated: tau_max={tau_max:.6g}, tau_min={tau_min:.6g}")
-
-    # ---- Candidate List Precomputation ----
-    print("   Precomputing candidate lists...")
-    candidate_lists = [[] for _ in range(num_cities)]
-    actual_candidate_size = min(candidate_list_size, num_cities - 1) if num_cities > 1 else 0
-    if actual_candidate_size > 0:
-        for i in range(num_cities):
-            distances_from_i = []
-            for j in range(num_cities):
-                if i == j: continue
-                if 0 <= i < num_cities and 0 <= j < num_cities:
-                     distances_from_i.append((dist_matrix[i][j], j))
-            distances_from_i.sort()
-            candidate_lists[i] = [neighbor_idx for dist, neighbor_idx in distances_from_i[:actual_candidate_size]]
-    print(f"   Candidate list size (k) used: {actual_candidate_size}")
-
-else: # num_cities == 0
+    tau_min = max(tau_min, 1e-9) # Ensure small positive floor
+else:
+    # Handle case of num_cities = 0
     initial_nn_length = 0
-    tau_max = 1.0
-    tau_min = 0.5
-    candidate_lists = []
-    actual_candidate_size = 0
+    tau_max = 1.0 # Assign default value
+    tau_min = 0.5 # Assign default value
 
 # Initialize pheromone matrix
 pheromone = [[tau_max for _ in range(num_cities)] for _ in range(num_cities)]
 
 last_update_iteration = 0
 
-# ----- Main MMAS loop -----
+# ----- Main MMAS + 2-opt loop -----
 for iteration in range(max_it):
-    raw_iteration_best_length = float('inf') # Track best length *before* 2-opt
-    raw_iteration_best_tour = None           # Track best tour *before* 2-opt
+    iteration_best_length = float('inf')
+    iteration_best_tour = None
 
     # ---- construct tours ----
     for ant in range(num_ants):
+        # Start ants randomly
         start_city = random.randrange(num_cities) if num_cities > 0 else 0
-        # ... (Rest of tour construction logic as in previous version, using Candidate Lists) ...
-        # --- Start: Tour Construction Logic ---
-        if num_cities == 0:
+        if num_cities == 0: # Handle empty case
              tour_tmp = []
-             visited_list = []
-             num_visited = 0
+             visited_list = [] # Keep original variable name if needed
              current_city = 0
         else:
-             visited_list = [False] * num_cities
+             visited_list = [False] * num_cities # Use list if sets cause issues with skeleton/validation
              visited_list[start_city] = True
              num_visited = 1
              tour_tmp = [start_city]
              current_city = start_city
 
         while num_visited < num_cities:
-            possible_next_cities = []
-            use_full_list = True
-            if actual_candidate_size > 0 and 0 <= current_city < num_cities:
-                candidate_neighbors = candidate_lists[current_city]
-                unvisited_candidates = [j for j in candidate_neighbors if 0 <= j < num_cities and not visited_list[j]]
-                if unvisited_candidates:
-                    possible_next_cities = unvisited_candidates
-                    use_full_list = False
-            if use_full_list:
-                 possible_next_cities = [j for j, visited in enumerate(visited_list) if not visited]
-            if not possible_next_cities: break
+            unvisited_indices = [j for j, visited in enumerate(visited_list) if not visited]
+            if not unvisited_indices: break # Safety break
 
             probabilities = []
             denom = 0.0
-            for j in possible_next_cities:
-                 if not (0 <= current_city < num_cities and 0 <= j < num_cities): continue
+            for j in unvisited_indices:
+                # Use clamped pheromone for selection probability calculation
+                # current_pheromone = max(tau_min, min(tau_max, pheromone[current_city][j]))
+                current_pheromone = pheromone[current_city][j] # Or use potentially unclamped
 
-                 current_pheromone = pheromone[current_city][j]
-                 tau = current_pheromone ** alpha
+                tau = current_pheromone ** alpha
+                eta = visibility[current_city][j] ** beta
+                prob = tau * eta
+                if prob < 0 or math.isnan(prob): prob = 0.0 # Handle invalid probabilities
+                probabilities.append((j, prob))
+                denom += prob
 
-                 # --- Adaptive Visibility Calculation ---
-                 try:
-                     dist_ij = dist_matrix[current_city][j]
-                     dist_j_start = dist_matrix[j][start_city] # Dist back to start
-                     # Avoid division by zero if distances are 0
-                     denominator = dist_ij + lambda_vis * dist_j_start
-                     eta = 1.0 / denominator if denominator > 1e-9 else 1e9 # Use large value if denom is near zero
-                 except IndexError:
-                     eta = 0.0 # Error case
-
-                 eta = eta ** beta # Apply beta exponent
-                 # --- End Adaptive Visibility ---
-
-                 prob = tau * eta
-                 if prob < 0 or math.isnan(prob): prob = 0.0
-                 probabilities.append((j, prob))
-                 denom += prob
-
-            if denom <= 0 or math.isnan(denom) or math.isinf(denom) or not probabilities:
-                next_city = random.choice(possible_next_cities) if possible_next_cities else -1
-            else: # Roulette wheel
+            if denom == 0.0 or math.isnan(denom) or math.isinf(denom):
+                next_city = random.choice(unvisited_indices) # Fallback to random choice
+            else:
+                # Roulette wheel
                 r = random.uniform(0, denom)
                 cumulative = 0.0
-                next_city = probabilities[-1][0]
+                # Ensure probabilities list is not empty before accessing last element
+                next_city = probabilities[-1][0] if probabilities else random.choice(unvisited_indices) 
+
                 for city_idx, p_val in probabilities:
                     cumulative += p_val
                     if r <= cumulative:
                         next_city = city_idx
                         break
             
-            if next_city == -1: break # Error case from fallback
-
             tour_tmp.append(next_city)
-            if 0 <= next_city < num_cities:
-                 visited_list[next_city] = True
-                 num_visited += 1
-                 current_city = next_city
-            else: break
-        # --- End: Tour Construction Logic ---
+            visited_list[next_city] = True
+            num_visited += 1
+            current_city = next_city
 
-        # ---- Calculate RAW tour length ----
+        # ---- Apply 2-opt ----
         if len(tour_tmp) == num_cities:
-            L_raw = calculate_tour_length(tour_tmp, dist_matrix)
+            optimized_tour, L = two_opt(tour_tmp, dist_matrix)
+        else: # Handle incomplete tour
+            optimized_tour = tour_tmp
+            L = float('inf')
+
+
+        # ---- Update Iteration/Global Bests ----
+        if L < iteration_best_length:
+            iteration_best_length = L
+            iteration_best_tour = optimized_tour[:]
+
+        if L < best_length:
+            best_length = L
+            best_tour = optimized_tour[:]
+            stagnation_counter = 0
+            last_update_iteration = iteration
+            # Optional: print update
+            # print(f"It {iteration+1}: New best {best_length}")
         else:
-            L_raw = float('inf')
+            # Increment stagnation only if a valid tour was found in this iteration
+            if iteration_best_length != float('inf'):
+                 stagnation_counter += 1
 
-        # ---- Update RAW Iteration Best ----
-        if L_raw < raw_iteration_best_length:
-            raw_iteration_best_length = L_raw
-            raw_iteration_best_tour = tour_tmp[:] # Store copy of the raw tour
-
-    # ---- Apply 2-opt ONCE to the iteration's best raw tour ----
-    optimized_iteration_best_tour = None
-    optimized_iteration_best_length = float('inf')
-    if raw_iteration_best_tour is not None:
-        optimized_iteration_best_tour, optimized_iteration_best_length = two_opt(raw_iteration_best_tour, dist_matrix)
-
-    # ---- Update Global Best using OPTIMIZED iteration best ----
-    if optimized_iteration_best_length < best_length:
-        best_length = optimized_iteration_best_length
-        best_tour = optimized_iteration_best_tour[:] # Store copy
-        stagnation_counter = 0
-        last_update_iteration = iteration
-        # Optional: print update
-        # print(f"It {iteration+1}: New best {best_length} (after 2-opt)")
-    else:
-        # Increment stagnation only if a valid tour was found and optimized in this iteration
-        if optimized_iteration_best_length != float('inf'):
-             stagnation_counter += 1
 
     # ---- Pheromone Evaporation & Lower Bound Clamp ----
     for i in range(num_cities):
         for j in range(num_cities):
             pheromone[i][j] *= (1 - rho)
-            pheromone[i][j] = max(tau_min, pheromone[i][j])
+            pheromone[i][j] = max(tau_min, pheromone[i][j]) # Apply lower bound
 
     # ---- MMAS Pheromone Deposit (Global Best) & Upper Bound Clamp ----
-    # Still use the global best tour for pheromone deposit (common MMAS strategy)
+    # Use global best tour for update (a common MMAS variant)
     update_tour = best_tour
     update_length = best_length
+
     if update_tour is not None and update_length != float('inf') and update_length > 0:
         delta_tau = 1.0 / update_length
         for idx in range(num_cities):
             i = update_tour[idx]
-            j = update_tour[(idx + 1) % num_cities]
-            if 0 <= i < num_cities and 0 <= j < num_cities:
-                 pheromone[i][j] += delta_tau
-                 pheromone[i][j] = min(tau_max, pheromone[i][j])
-                 pheromone[j][i] = pheromone[i][j]
+            j = update_tour[(idx + 1) % num_cities] # Wrap around for last edge
+            
+            # Deposit and clamp with upper bound
+            pheromone[i][j] += delta_tau
+            pheromone[i][j] = min(tau_max, pheromone[i][j])
+            pheromone[j][i] = pheromone[i][j] # Symmetric TSP
+
 
     # ---- Stagnation Handling ----
     if reset_pheromone_on_stagnation and stagnation_counter >= stagnation_limit:
-        # (Stagnation logic remains the same as previous version)
-        # ...
-        pass # Placeholder for stagnation logic if enabled
+        # print(f"--- Stagnation detected (Iter {iteration+1}). Resetting pheromones. ---")
+        # Recalculate tau_max based on current best length for potentially better scaling
+        if best_length > 0 and best_length != float('inf'):
+             current_tau_max = 1.0 / (rho * best_length)
+             current_tau_min = current_tau_max / (2.0 * num_cities) if num_cities > 0 else current_tau_max / 2.0
+             current_tau_min = max(current_tau_min, 1e-9)
+        else: # Fallback to initial values if best_length is invalid
+            current_tau_max = tau_max
+            current_tau_min = tau_min
+
+        for i in range(num_cities):
+            for j in range(num_cities):
+                pheromone[i][j] = current_tau_max # Reset to current tau_max
+        stagnation_counter = 0 # Reset counter
+        # Update global tau_max and tau_min if recalculated
+        tau_max = current_tau_max
+        tau_min = current_tau_min
+
 
 # Final assignment to reserved variables
 if best_tour is None and num_cities > 0:
+     # If no tour ever found, create a default one (e.g., 0, 1, 2...)
+     print("*** Warning: No valid tour found. Creating default tour.")
      tour = list(range(num_cities))
      tour_length = calculate_tour_length(tour, dist_matrix)
 elif best_tour is None and num_cities == 0:
@@ -663,16 +633,17 @@ elif best_tour is None and num_cities == 0:
      tour_length = 0
 else:
      tour = best_tour
-     tour_length = int(round(best_length)) if best_length != float('inf') else 99999999
+     tour_length = int(round(best_length)) # Ensure integer
 
-# Update added_note
-added_note = "MMAS + Iter-Best 2-opt + CL(k={}) + HI + AdaptVis(L={:.2f})".format(
-    actual_candidate_size, lambda_vis
-)
-added_note += f" Params: a={alpha:.1f}, b={beta:.1f}, r={rho:.2f}."
-added_note += f" Final tau_max~{tau_max:.3g}, tau_min~{tau_min:.3g}."
-# added_note += f" Stagnation reset: {reset_pheromone_on_stagnation} (limit={stagnation_limit})." # Removed as reset is False
 
+# Update added_note (ensure this variable is defined before this block in the skeleton)
+added_note = "Implementation of Max-Min Ant System (MMAS) with 2-opt local search enhancement." # Reset note first
+added_note += f" Params: alpha={alpha:.2f}, beta={beta:.2f}, rho={rho:.2f}."
+# Report the *final* tau values used, reflecting potential resets
+added_note += f" Final tau_max≈{tau_max:.4g}, tau_min≈{tau_min:.4g}."
+added_note += f" Stagnation reset: {reset_pheromone_on_stagnation} (limit={stagnation_limit})."
+
+# ----- End of MMAS + 2-opt Implementation -----
 
 
 
