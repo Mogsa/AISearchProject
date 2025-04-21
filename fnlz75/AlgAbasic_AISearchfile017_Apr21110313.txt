@@ -1,0 +1,9 @@
+USER = fnlz75 (Morgan Rosca),
+ALGORITHM CODE = AC, NAME OF CITY-FILE = AISearchfile017.txt,
+SIZE = 17, TOUR LENGTH = 1444,
+4,8,10,7,14,11,15,0,16,5,12,9,2,6,1,13,3,
+NOTE = Elitist weight = 5, alpha = 1.0, beta = 5.0, rho = 0.5, Q = 100.
+The parameter values are 'max_it' = 2352 and 'num_ants' = 17.
+RUN-TIME = 2.4 seconds.
+DATE-TIME = 21/04/2025-11:03:13.
+CERTIFICATE = 1748.

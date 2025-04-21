@@ -16,6 +16,7 @@ import sys
 import time
 import random
 from datetime import datetime
+import math
 
 ############ START OF SECTOR 0 (IGNORE THIS COMMENT)
 ############
@@ -158,7 +159,7 @@ def read_in_algorithm_codes_and_tariffs(alg_codes_file):
 ############
 ############ END OF SECTOR 0 (IGNORE THIS COMMENT)
 
-input_file = "AISearchfile012.txt"
+input_file = "AISearchfile535.txt"
 
 ############ START OF SECTOR 1 (IGNORE THIS COMMENT)
 ############
@@ -355,9 +356,14 @@ added_note = ""
 ############
 ############ END OF SECTOR 9 (IGNORE THIS COMMENT)
 
-# ----- PARAMETERS (feel free to tweak when tuning, but keep names) -----
-max_it = 200                # maximum number of iterations of main loop
-num_ants = num_cities       # number of ants (default: one per city)
+# ----- PARAMETERS -----
+# heurstics based on paper
+if   num_cities <= 60:      num_ants = num_cities
+elif num_cities <= 200:     num_ants = max(10, int(0.3*num_cities))
+else:                       num_ants = 100
+
+max_it = int(40000 / num_ants)
+
 alpha = 1.0                 # pheromone importance
 beta  = 5.0                 # heuristic importance (visibility)
 rho   = 0.5                 # pheromone evaporation rate (0<rho<=1)
