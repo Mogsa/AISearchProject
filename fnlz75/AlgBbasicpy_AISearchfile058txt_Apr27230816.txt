@@ -1,0 +1,9 @@
+USER = fnlz75 ( ),
+ALGORITHM CODE = PS, NAME OF CITY-FILE = AISearchfile058.txt,
+SIZE = 58, TOUR LENGTH = 29164,
+30,9,33,22,12,8,21,48,14,35,53,46,34,45,18,38,51,16,50,0,39,44,5,27,1,28,7,57,54,47,24,36,3,4,52,37,42,2,6,13,23,26,20,29,19,56,15,55,31,49,43,32,17,10,40,25,41,11,
+NOTE = Improved PSO with greedy seeding, 2‑opt, reflecting bounds, restarts | N=19, iter=2500, w∈[0.9,0.4], c1=1.2, c2=1.6
+The parameter values are 'max_it' = 2500, 'num_parts' = 19, w=[0.9-0.40], c1=1.2, c2=1.6.
+RUN-TIME = 1.5 seconds.
+DATE-TIME = 27/04/2025-23:08:16.
+CERTIFICATE = 2848.

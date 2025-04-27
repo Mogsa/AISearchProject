@@ -246,7 +246,7 @@ def read_in_algorithm_codes_and_tariffs(alg_codes_file):
 ############
 ############ END OF SECTOR 0 (IGNORE THIS COMMENT)
 
-input_file = "AISearchfile180.txt" # CHANGE THIS OR SUPPLY VIA COMMAND LINE
+input_file = "AISearchfile058.txt" # CHANGE THIS OR SUPPLY VIA COMMAND LINE
 
 ############ START OF SECTOR 1 (IGNORE THIS COMMENT)
 ############
@@ -499,82 +499,175 @@ added_note = "" # You can add notes here if you wish
 ############ END OF SECTOR 9 (IGNORE THIS COMMENT)
 
 ############ START OF SECTOR 9 (IGNORE THIS COMMENT)
-# -------------------- BEGIN PSO CODE --------------------
-#
-#   Pure Particle Swarm Optimisation for TSP
-#   (random-keys representation, no extra heuristics)
-#
-# ---- helpers ----
-def keys_to_tour(keys):
-    """Return permutation of city indices obtained by sorting the key vector."""
-    return [i for i, _ in sorted(enumerate(keys), key=lambda t: t[1])]
 
-def tour_length(tour):
-    return sum(dist_matrix[tour[i]][tour[(i+1) % num_cities]]
-               for i in range(num_cities))
 
-# ----------- Parameters -----------
-algorithm_code = "PS"        # already legal in alg_codes_and_tariffs.txt
-num_particles  = 40          # swarm size
-max_iter       = 1000        # iterations
-w_start, w_end = 0.9, 0.4    # inertia linearly damped
-c1, c2         = 1.5, 1.5    # cognitive & social factors
-# ----------------------------------
+# ------------- parameters -------------
+num_particles = max(10, min(60, num_cities // 3))  # scale with problem size
+max_iter      = 2500                               # more loops – each is cheap
+w_start, w_end = 0.9, 0.4                          # inertia damp
+c1, c2         = 1.2, 1.6                         # cognitive / social
+w_max, w_min   = w_start, w_end                    # names expected by wrapper
+# --------------------------------------
 
 import random, math
+random.seed()
+
+# ---- helpers -----------------------------------------------------
+
+def calculate_tour_length(tour, matrix):
+    length = 0
+    n = len(tour)
+    for i in range(n):
+        length += matrix[tour[i]][tour[(i + 1) % n]]
+    return length
 
 
+def keys_to_tour(keys):
+    """decode random‑keys vector to permutation"""
+    return [i for i, _ in sorted(enumerate(keys), key=lambda t: t[1])]
 
-# ---- particle structure ----
+
+def tour_length(tour):
+    return calculate_tour_length(tour, dist_matrix)
+
+
+# ---- greedy seeding ---------------------------------------------
+
+def greedy_keys(start):
+    """Return random‑keys vector that decodes to a greedy NN tour."""
+    visited = {start}
+    tour = [start]
+    while len(tour) < num_cities:
+        last = tour[-1]
+        nxt = min((c for c in range(num_cities) if c not in visited),
+                   key=lambda c: dist_matrix[last][c])
+        visited.add(nxt)
+        tour.append(nxt)
+    rk = [0] * num_cities
+    for rank, city in enumerate(tour):
+        rk[city] = rank / (num_cities - 1)
+    return rk
+
+
+# ---- 2‑opt (first improvement) ----------------------------------
+
+def two_opt_first(tour):
+    best = tour_length(tour)
+    n = len(tour)
+    for i in range(n - 2):
+        for j in range(i + 2, n - (i == 0)):
+            a, b = tour[i], tour[(i + 1) % n]
+            c, d = tour[j], tour[(j + 1) % n]
+            delta = (dist_matrix[a][c] + dist_matrix[b][d]
+                     - dist_matrix[a][b] - dist_matrix[c][d])
+            if delta < 0:
+                tour[i + 1:j + 1] = reversed(tour[i + 1:j + 1])
+                best += delta
+                return tour, best
+    return tour, best
+
+
+# ---- initialise swarm -------------------------------------------
+
 particles = []
 for _ in range(num_particles):
-    pos = [random.random() for _ in range(num_cities)]
-    vel = [0.0] * num_cities
+    if random.random() < 0.30:          # 30 % smart particles
+        pos = greedy_keys(random.randrange(num_cities))
+    else:
+        pos = [random.random() for _ in range(num_cities)]
+    vel  = [0.0] * num_cities
     tour = keys_to_tour(pos)
     fit  = tour_length(tour)
-    particles.append({"pos":pos, "vel":vel,
-                      "pbest_pos":pos[:], "pbest_fit":fit,
-                      "tour":tour, "fit":fit})
+    particles.append({"pos": pos, "vel": vel,
+                      "pbest_pos": pos[:], "pbest_fit": fit,
+                      "tour": tour, "fit": fit})
 
-# ---- global best ----
-g_best_pos  = min(particles, key=lambda p: p["fit"])["pbest_pos"][:]
-g_best_fit  = min(particles, key=lambda p: p["fit"])["fit"]
+# ---- global best -------------------------------------------------
+
+g_best_particle = min(particles, key=lambda p: p["fit"])
+g_best_pos  = g_best_particle["pbest_pos"][:]
+g_best_fit  = g_best_particle["fit"]
 g_best_tour = keys_to_tour(g_best_pos)
 
-# ---- main PSO loop ----
+# ---- main PSO loop ----------------------------------------------
+
+no_improve = 0
+best_so_far = g_best_fit
+
 for it in range(max_iter):
-    w = w_start - (w_start - w_end) * it / max_iter   # inertia damping
+    w = w_start - (w_start - w_end) * it / max_iter
     for p in particles:
-        # -- velocity & position update --
+        # --- velocity & position update ---
         for d in range(num_cities):
             r1, r2 = random.random(), random.random()
             p["vel"][d] = ( w * p["vel"][d]
-                            + c1*r1*(p["pbest_pos"][d] - p["pos"][d])
-                            + c2*r2*(g_best_pos[d]  - p["pos"][d]) )
-            p["pos"][d] += p["vel"][d]
-            # clamp keys to [0,1]
-            if p["pos"][d] < 0.0: p["pos"][d] = 0.0
-            elif p["pos"][d] > 1.0: p["pos"][d] = 1.0
+                             + c1 * r1 * (p["pbest_pos"][d] - p["pos"][d])
+                             + c2 * r2 * (g_best_pos[d] - p["pos"][d]) )
+            new_pos = p["pos"][d] + p["vel"][d]
+            # reflecting bounds
+            if new_pos < 0.0:
+                p["pos"][d] = -new_pos
+                p["vel"][d] = -p["vel"][d] * 0.5
+            elif new_pos > 1.0:
+                p["pos"][d] = 2.0 - new_pos
+                p["vel"][d] = -p["vel"][d] * 0.5
+            else:
+                p["pos"][d] = new_pos
 
-        # -- fitness evaluation --
+        # --- fitness evaluation ---
         p["tour"] = keys_to_tour(p["pos"])
         p["fit"]  = tour_length(p["tour"])
 
-        # -- personal best update --
+        # --- personal best update + 2‑opt kick ---
         if p["fit"] < p["pbest_fit"]:
-            p["pbest_fit"], p["pbest_pos"] = p["fit"], p["pos"][:]
+            improved_tour, imp_fit = two_opt_first(p["tour"][:])
+            if imp_fit < p["pbest_fit"]:
+                new_keys = [0] * num_cities
+                for rank, city in enumerate(improved_tour):
+                    new_keys[city] = rank / (num_cities - 1)
+                p["pbest_pos"], p["pbest_fit"] = new_keys, imp_fit
+            else:
+                p["pbest_pos"], p["pbest_fit"] = p["pos"][:], p["fit"]
 
-        # -- global best update --
-        if p["fit"] < g_best_fit:
-            g_best_fit, g_best_pos, g_best_tour = p["fit"], p["pos"][:], p["tour"][:]
+        # --- global best update ---
+        if p["pbest_fit"] < g_best_fit:
+            g_best_fit  = p["pbest_fit"]
+            g_best_pos  = p["pbest_pos"][:]
+            g_best_tour = keys_to_tour(g_best_pos)
 
-# ---- hand results to the wrapper ----
-tour         = g_best_tour
-tour_length  = int(round(g_best_fit))
-added_note   = (f"Plain PSO, N={num_particles}, iter={max_iter}, "
-                f"w∈[{w_start},{w_end}], c1=c2={c1}")
-# --------------------  END PSO CODE  --------------------
+    # ---- stagnation check & jolt --------------------------------
+    if g_best_fit < best_so_far - 1e-6:
+        best_so_far = g_best_fit
+        no_improve  = 0
+    else:
+        no_improve += 1
 
+    if no_improve >= 50:
+        worst = sorted(particles, key=lambda p: p["fit"], reverse=True)
+        for p in worst[:max(1, num_particles // 5)]:
+            p["pos"] = [random.random() for _ in range(num_cities)]
+            p["vel"] = [0.0] * num_cities
+            p["tour"] = keys_to_tour(p["pos"])
+            p["fit"]  = tour_length(p["tour"])
+            p["pbest_pos"], p["pbest_fit"] = p["pos"][:], p["fit"]
+        # reset global best
+        g_best_particle = min(particles, key=lambda p: p["fit"])
+        g_best_pos  = g_best_particle["pbest_pos"][:]
+        g_best_fit  = g_best_particle["fit"]
+        g_best_tour = keys_to_tour(g_best_pos)
+        best_so_far = g_best_fit
+        no_improve  = 0
+
+# ---- hand results to the wrapper --------------------------------
+
+tour        = g_best_tour
+tour_length = int(round(g_best_fit))
+
+max_it    = max_iter
+num_parts = num_particles
+added_note = ("Improved PSO with greedy seeding, 2‑opt, reflecting bounds, "
+              f"restarts | N={num_particles}, iter={max_iter}, "
+              f"w∈[{w_start},{w_end}], c1={c1}, c2={c2}")
 
 
 ############ START OF SECTOR 10 (IGNORE THIS COMMENT)

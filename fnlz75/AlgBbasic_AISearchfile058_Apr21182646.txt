@@ -1,9 +1,0 @@
-USER = fnlz75 (Morgan Rosca),
-ALGORITHM CODE = PS, NAME OF CITY-FILE = AISearchfile058.txt,
-SIZE = 58, TOUR LENGTH = 91629,
-37,27,16,2,25,4,33,0,7,28,9,42,13,44,53,54,8,14,48,3,57,50,55,46,40,20,10,38,47,35,18,26,32,23,51,12,36,52,24,39,1,5,22,41,11,17,56,15,21,43,29,49,19,31,30,45,34,6,
-NOTE = PSO for TSP (num_parts=50, max_it=1000, w=0.7, c1=1.5, c2=1.5). Velocity as sequence of swaps (simplified random swap generation). No NumPy used.
-The parameter values are 'max_it' = 1000 and 'num_parts' = 50.
-RUN-TIME = 1.1 seconds.
-DATE-TIME = 21/04/2025-18:26:46.
-CERTIFICATE = 2839.

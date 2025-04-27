@@ -1,9 +1,0 @@
-USER = fnlz75 (Morgan Rosca),
-ALGORITHM CODE = AC, NAME OF CITY-FILE = AISearchfile012.txt,
-SIZE = 12, TOUR LENGTH = 56,
-0,4,9,2,8,6,3,1,10,5,7,11,
-NOTE = Enhanced EAS: candidate list k=20, 2‑opt LS, q0=0.9, MMAS caps, rho=0.02, xi=0.1, restart=100 iterations.
-The parameter values are 'max_it' = 4166 and 'num_ants' = 12.
-RUN-TIME = 1.0 seconds.
-DATE-TIME = 21/04/2025-12:10:12.
-CERTIFICATE = 1692.
