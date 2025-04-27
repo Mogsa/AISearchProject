@@ -445,8 +445,8 @@ num_ants = 25
 max_it = 800             
 
 alpha = 1.0                 # pheromone importance
-beta  = 2.0                 # heuristic importance (visibility)
-rho   = 0.5                 # pheromone evaporation rate
+beta = 2.0 
+rho = 0.15 
 
 p_best = 0.05               # Parameter for tau_min heuristic calculation
 tau_max = 0.0

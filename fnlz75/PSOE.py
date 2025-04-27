@@ -15,7 +15,10 @@ import os
 import sys
 import time
 import random
+import math
+import statistics
 from datetime import datetime
+from functools import lru_cache
 
 ############ START OF SECTOR 0 (IGNORE THIS COMMENT)
 ############
@@ -158,7 +161,7 @@ def read_in_algorithm_codes_and_tariffs(alg_codes_file):
 ############
 ############ END OF SECTOR 0 (IGNORE THIS COMMENT)
 
-input_file = "AISearchfile175.txt"
+input_file = "AISearchfile180.txt"
 
 ############ START OF SECTOR 1 (IGNORE THIS COMMENT)
 ############
@@ -283,8 +286,8 @@ my_user_name = "fnlz75"
 ############
 ############ END OF SECTOR 6 (IGNORE THIS COMMENT)
 
-my_first_name = "morgan"
-my_last_name = "rosca"
+my_first_name = ""
+my_last_name = ""
 
 ############ START OF SECTOR 7 (IGNORE THIS COMMENT)
 ############
@@ -330,7 +333,7 @@ start_time = time.time()
 ############
 ############ END OF SECTOR 8 (IGNORE THIS COMMENT)
 
-added_note = ""
+added_note = "Optimized PSO-ACO with performance enhancements"
 
 ############ START OF SECTOR 9 (IGNORE THIS COMMENT)
 ############
@@ -355,466 +358,177 @@ added_note = ""
 ############
 ############ END OF SECTOR 9 (IGNORE THIS COMMENT)
 
-import math
-from typing import List, Dict, Tuple
+############ START OF SECTOR 9 (IGNORE THIS COMMENT)
+# -------------------- BEGIN TSP CODE --------------------
+#
+#  Hybrid PSO – ACO – 3-Opt   (paper-level variant)
+#
 
-# --- Optimized weighted random choice --------------------------------------------
-def weighted_random_choice(indices, probabilities):
-    r = random.random()
-    cum = 0.0
-    for idx, prob in zip(indices, probabilities):
-        cum += prob
-        if r <= cum:
-            return idx
-    # numerical safety net
-    return indices[-1]
+# ---------- Parameters ----------
+num_parts       = 10        # m  = particles = top-level ants
+inner_aco_loops = 10        # colony size per particle   (paper uses < |V|)
+max_it          = 800       # PSO iterations  (≈ paper)
+w, c1, c2       = 0.7, 2.0, 2.0
+rho             = 0.10      # pheromone evaporation
+Q_const         = 100
+alpha_range     = (0.0, 3.0)
+beta_range      = (0.0, 3.0)
+# --------------------------------
 
-# --- 2-opt Local Search for Tour Improvement -------------------------------------
-def two_opt_swap(tour: List[int], i: int, j: int) -> List[int]:
-    """Performs a 2-opt swap: reverses the segment from i to j."""
-    new_tour = tour[:i]
-    new_tour.extend(reversed(tour[i:j+1]))
-    new_tour.extend(tour[j+1:])
-    return new_tour
+import math, random
+random.seed()                # different run each time
 
-def two_opt_improvement(tour: List[int], dist_matrix, max_iterations=100) -> List[int]:
-    """Applies 2-opt local search to improve a given tour."""
-    n = len(tour)
-    improved = True
-    current_tour = tour[:]
-    current_length = tour_length(current_tour, dist_matrix)
-    
-    iteration = 0
-    while improved and iteration < max_iterations:
-        improved = False
-        iteration += 1
-        
-        # Use first improvement strategy (faster)
-        for i in range(1, n-1):
-            if improved:
-                break
-            for j in range(i+1, n):
-                # Calculate the change in length from this swap
-                before = dist_matrix[current_tour[i-1]][current_tour[i]] + dist_matrix[current_tour[j]][current_tour[(j+1) % n]]
-                after = dist_matrix[current_tour[i-1]][current_tour[j]] + dist_matrix[current_tour[i]][current_tour[(j+1) % n]]
-                
-                if after < before:
-                    current_tour = two_opt_swap(current_tour, i, j)
-                    current_length = tour_length(current_tour, dist_matrix)
-                    improved = True
-                    break
-                    
-    return current_tour
+# ---------- helpers ----------
+def tour_length(tour):
+    s = sum(dist_matrix[tour[i]][tour[(i+1) % num_cities]]
+            for i in range(num_cities))
+    return s
 
-# --- Nearest Neighbor Heuristic for Initial Tour -------------------------------
-def nearest_neighbor_tour(dist_matrix, start_city=0) -> List[int]:
-    """Constructs a tour using the nearest neighbor heuristic."""
-    n = len(dist_matrix)
-    tour = [start_city]
-    unvisited = set(range(n))
-    unvisited.remove(start_city)
-    
-    current = start_city
-    while unvisited:
-        # Find nearest unvisited city
-        nearest = min(unvisited, key=lambda city: dist_matrix[current][city])
-        tour.append(nearest)
-        unvisited.remove(nearest)
-        current = nearest
-        
+def nearest_neighbour_start():
+    rem = set(range(num_cities))
+    cur = random.choice(tuple(rem))
+    tour = [cur]; rem.remove(cur)
+    while rem:
+        nxt = min(rem, key=lambda j: dist_matrix[cur][j])
+        tour.append(nxt); rem.remove(nxt); cur = nxt
     return tour
 
-# --- Tour Length Calculator (Optimized) ------------------------------------------
-def tour_length(tour: List[int], dist_matrix) -> int:
-    """Calculate total tour length including return to start (optimized)."""
-    # Use direct indexing in a single line for better performance
-    return sum(dist_matrix[tour[i]][tour[i+1]] for i in range(len(tour)-1)) + dist_matrix[tour[-1]][tour[0]]
+def construct_tour(alpha, beta, tau):
+    rem = set(range(num_cities))
+    cur = random.randrange(num_cities)
+    tour = [cur]; rem.remove(cur)
+    while rem:
+        weights, cities = [], []
+        denom = 0.0
+        for j in rem:
+            # Ensure non-zero distance to prevent division by zero
+            distance = max(dist_matrix[cur][j], 1e-10)  # Minimum distance
+            weight = (tau[cur][j] ** alpha) * ((1.0 / distance) ** beta)
+            weights.append(weight); cities.append(j); denom += weight
+        r = random.random() * denom
+        acc = 0.0
+        for weight, j in zip(weights, cities):
+            acc += weight
+            if acc >= r:
+                nxt = j; break
+        tour.append(nxt); rem.remove(nxt); cur = nxt
+    return tour, tour_length(tour)
 
-# --- MAX-MIN Ant Colony Optimization -------------------------------------------
-max_it = 150   # Iterations for ACO
-num_ants = max(10, min(30, num_cities // 2))  # Adaptive ant count
+def three_opt(t):
+    """full 3-Opt until no improving reconnection exists (deterministic)"""
+    improved = True
+    while improved:
+        improved = False
+        for i in range(num_cities-2):
+            for j in range(i+2, num_cities):
+                for k in range(j+2, num_cities + (i>0)):   # allow wrap
+                    a,b = t[i], t[(i+1)%num_cities]
+                    c,d = t[j], t[(j+1)%num_cities]
+                    e,f = t[k%num_cities], t[(k+1)%num_cities]
+                    old = (dist_matrix[a][b] + dist_matrix[c][d] +
+                           dist_matrix[e][f])
+                    # 7 alternative reconnections (check four most useful)
+                    # (1) flip (b…c)
+                    gain = (dist_matrix[a][c] + dist_matrix[b][d] +
+                            dist_matrix[e][f]) - old
+                    if gain < 0:
+                        t[i+1:j+1] = reversed(t[i+1:j+1]); improved = True; break
+                    # (2) flip (d…e)
+                    gain = (dist_matrix[a][b] + dist_matrix[c][e] +
+                            dist_matrix[d][f]) - old
+                    if gain < 0:
+                        t[j+1:k+1] = reversed(t[j+1:k+1]); improved = True; break
+                    # (3) flip (b…c) and (d…e)
+                    gain = (dist_matrix[a][c] + dist_matrix[b][e] +
+                            dist_matrix[d][f]) - old
+                    if gain < 0:
+                        t[i+1:j+1] = reversed(t[i+1:j+1])
+                        t[j+1:k+1] = reversed(t[j+1:k+1])
+                        improved = True; break
+                    # (4) reorder segments (b…c)(d…e) → (d…e)(b…c)
+                    gain = (dist_matrix[a][d] + dist_matrix[e][b] +
+                            dist_matrix[c][f]) - old
+                    if gain < 0:
+                        new_seg = t[j+1:k+1] + t[i+1:j+1]
+                        t[i+1:k+1] = new_seg
+                        improved = True; break
+                if improved: break
+            if improved: break
+    return t
+# --------------------------------
 
-class EnhancedACO_Solver:
-    def __init__(self, dist_matrix, alpha=1.0, beta=2.5, rho=0.1, num_ants=20, Q=100):
-        self.dist = dist_matrix
-        self.n = len(dist_matrix)
-        self.alpha = alpha  # Pheromone importance
-        self.beta = beta    # Heuristic importance
-        self.rho = rho      # Evaporation rate
-        self.m = num_ants   # Number of ants
-        self.Q = Q          # Pheromone deposit constant
-        
-        # Precompute nearest neighbor lists for each city
-        self.nn_list = self._compute_nn_lists(min(15, self.n-1))  # Store ~15 nearest neighbors
-        
-        # Precompute heuristic information (η = 1/d)
-        self.eta = [[0.0 if i == j else 1.0 / max(0.1, dist_matrix[i][j]) 
-                    for j in range(self.n)] for i in range(self.n)]
-        
-        # Initial pheromone bounds for MAX-MIN AS
-        nn_tour = nearest_neighbor_tour(dist_matrix)
-        self.nn_length = tour_length(nn_tour, dist_matrix)
-        
-        # Initial pheromone level
-        tau0 = 1.0 / (self.rho * self.nn_length)
-        self.tau_max = tau0
-        self.tau_min = self.tau_max / (2.0 * self.n)
-        
-        # Initialize pheromone matrix
-        self.tau = [[tau0 for _ in range(self.n)] for _ in range(self.n)]
-        
-        # Track best solution
-        self.best_tour = None
-        self.best_length = float('inf')
-        self.iteration_best_tour = None
-        self.iteration_best_length = float('inf')
-        self.stagnation_counter = 0
-        
-    def _compute_nn_lists(self, nn_size):
-        """Precompute nearest neighbor lists for each city (optimized)."""
-        nn_size = min(nn_size, self.n-1)  # Ensure we don't exceed array bounds
-        nn_lists = []
-        
-        # Pre-allocate memory for distances
-        all_distances = []
-        
-        # Process in batches to reduce memory pressure
-        for i in range(self.n):
-            # Faster array construction without conditionals
-            distances = [(j, self.dist[i][j]) for j in range(self.n)]
-            distances[i] = (i, float('inf'))  # Exclude self with infinite distance
-            
-            # Use partial sort - much faster than full sort when we only need top K
-            # This is critical for large instances
-            distances.sort(key=lambda x: x[1])  # Sort by distance
-            
-            # Take only the k nearest
-            nn_lists.append([city for city, _ in distances[:nn_size]])
-            
-        return nn_lists
-    
-    def _select_next_city(self, current, visited):
-        """Select next city using MAX-MIN AS with candidate list."""
-        # First try from candidate list (nearest neighbors)
-        candidates = [j for j in self.nn_list[current] if not visited[j]]
-        
-        # If all nearest neighbors are visited, consider all unvisited cities
-        if not candidates:
-            candidates = [j for j in range(self.n) if not visited[j]]
-            
-        # If only one candidate, return it
-        if len(candidates) == 1:
-            return candidates[0]
-            
-        # Calculate selection probabilities
-        weights = []
-        for j in candidates:
-            tau_ij = self.tau[current][j] ** self.alpha
-            eta_ij = self.eta[current][j] ** self.beta
-            weights.append(tau_ij * eta_ij)
-            
-        # Choose proportionally
-        total = sum(weights)
-        if total <= 0:  # Numerical safety
-            return random.choice(candidates)
-            
-        probs = [w/total for w in weights]
-        return weighted_random_choice(candidates, probs)
-    
-    def _construct_tour(self):
-        """Construct a tour using MAX-MIN AS with candidate lists."""
-        start = random.randrange(self.n)
-        tour = [start]
-        visited = [False] * self.n
-        visited[start] = True
-        current = start
-        
-        # Construct tour by selecting next city using pheromone and heuristic
-        for _ in range(self.n - 1):
-            next_city = self._select_next_city(current, visited)
-            tour.append(next_city)
-            visited[next_city] = True
-            current = next_city
-            
-        return tour
-    
-    def _update_pheromones(self):
-        """Update pheromones using MAX-MIN AS rules (optimized)."""
-        # Use a flat factor for faster evaporation (1.0 - self.rho)
-        evap_factor = 1.0 - self.rho
-        tau_min, tau_max = self.tau_min, self.tau_max
-        
-        # Faster pheromone evaporation - process only upper triangle
-        for i in range(self.n):
-            row = self.tau[i]
-            for j in range(i+1, self.n):
-                row[j] *= evap_factor
-                self.tau[j][i] = row[j]  # Symmetric update
-        
-        # Determine which tour to use for deposit (best or iteration-best)
-        deposit_tour = self.best_tour if self.stagnation_counter > 10 else self.iteration_best_tour
-        deposit_length = self.best_length if self.stagnation_counter > 10 else self.iteration_best_length
-            
-        # Faster pheromone deposit - only process tour edges
-        if deposit_tour:
-            delta = self.Q / deposit_length
-            
-            # Create edge list for deposit and bound application
-            edges = []
-            for i in range(self.n):
-                u, v = deposit_tour[i], deposit_tour[(i + 1) % self.n]
-                # Always store with smaller index first to match our upper triangle approach
-                if u > v:
-                    u, v = v, u
-                edges.append((u, v))
-                
-                # Direct deposit on the edge
-                self.tau[u][v] += delta
-                self.tau[v][u] = self.tau[u][v]  # Symmetric
-            
-            # Apply bounds only to edges we modified
-            for u, v in edges:
-                # Use direct variable access and in-place min/max for speed
-                self.tau[u][v] = max(tau_min, min(tau_max, self.tau[u][v]))
-                self.tau[v][u] = self.tau[u][v]
-    
-    def _update_bounds(self):
-        """Dynamically adjust pheromone bounds based on best solution."""
-        # Update tau_max based on best solution
-        if self.best_length < float('inf'):
-            self.tau_max = 1.0 / (self.rho * self.best_length)
-            # Decay ratio depends on problem size
-            decay_ratio = 0.5 * math.pow(0.75, min(100, self.n) / 100)
-            self.tau_min = self.tau_max * decay_ratio / self.n
-    
-    def run(self, iterations=max_it, time_limit=None):
-        """Run the enhanced ACO algorithm with time limit option (optimized)."""
-        start_time = time.time()
-        stagnation_limit = 20  # Iterations without improvement
-        
-        # Initialize best solution with nearest neighbor heuristic (faster start)
-        nn_tour = nearest_neighbor_tour(self.dist, random.randrange(self.n))
-        nn_tour = two_opt_improvement(nn_tour, self.dist, max_iterations=100)  # More aggressive improvement
-        nn_length = tour_length(nn_tour, dist_matrix)
-        
-        if nn_length < self.best_length:
-            self.best_tour = nn_tour
-            self.best_length = nn_length
-            self.iteration_best_tour = nn_tour
-            self.iteration_best_length = nn_length
-        
-        # Use early stopping criteria for better time management
-        last_improvement = 0
-        early_stop_threshold = min(10, iterations // 5)  # 20% of iterations without improvement
-        
-        # Pre-generate some random numbers to avoid function call overhead in loop
-        apply_local_search = [random.random() < 0.1 for _ in range(self.m * iterations)]
-        rand_idx = 0
-        
-        # Track progress and adjust strategy
-        best_length_history = []
-        
-        for iteration in range(iterations):
-            # Time limit check
-            if time_limit and time.time() - start_time > time_limit:
-                break
-                
-            # Reset iteration best
-            self.iteration_best_tour = None
-            self.iteration_best_length = float('inf')
-            
-            # Construct tours with all ants (in parallel conceptually)
-            ant_tours = []
-            ant_lengths = []
-            
-            # Process ants in batches for better cache locality
-            for ant_idx in range(self.m):
-                tour = self._construct_tour()
-                length = tour_length(tour, self.dist)
-                
-                # Apply local search to improve ant's tour (selectively)
-                if apply_local_search[rand_idx]:
-                    # Faster 2-opt with limited iterations
-                    tour = two_opt_improvement(tour, self.dist, max_iterations=20)
-                    length = tour_length(tour, self.dist)
-                rand_idx = (rand_idx + 1) % len(apply_local_search)
-                
-                ant_tours.append(tour)
-                ant_lengths.append(length)
-                
-                # Update iteration best
-                if length < self.iteration_best_length:
-                    self.iteration_best_tour = tour
-                    self.iteration_best_length = length
-                    
-                # Update global best
-                if length < self.best_length:
-                    self.best_tour = tour
-                    self.best_length = length
-                    self.stagnation_counter = 0
-                    last_improvement = iteration
-                    # Update pheromone bounds when a new best is found
-                    self._update_bounds()
-            
-            # Track progress
-            best_length_history.append(self.best_length)
-            
-            # Stagnation check and handling
-            if self.iteration_best_length >= self.best_length:
-                self.stagnation_counter += 1
-            else:
-                self.stagnation_counter = 0
-                
-            # If stagnation detected, apply diversification
-            if self.stagnation_counter >= stagnation_limit:
-                self._diversify()
-                self.stagnation_counter = 0
-            
-            # Update pheromones more efficiently
-            self._update_pheromones()
-            
-            # Early stopping check - if no improvement for a while
-            if iteration - last_improvement > early_stop_threshold:
-                # Only stop if we've completed at least 1/3 of iterations
-                if iteration > iterations // 3:
-                    break
-        
-        # Final improvement with intense local search - only if we have time
-        time_remaining = time_limit - (time.time() - start_time) if time_limit else 5
-        if self.best_tour and time_remaining > 0:
-            # Scale 2-opt iterations based on time available
-            opt_iterations = min(500, max(50, int(time_remaining * 20)))
-            improved_tour = two_opt_improvement(self.best_tour, self.dist, max_iterations=opt_iterations)
-            improved_length = tour_length(improved_tour, self.dist)
-            if improved_length < self.best_length:
-                self.best_tour = improved_tour
-                self.best_length = improved_length
-                
-        return self.best_tour, self.best_length
-    
-    def _diversify(self):
-        """Diversify search when stagnation is detected."""
-        # Reset some pheromone trails to tau_max to encourage exploration
-        for i in range(self.n):
-            for j in range(i+1, self.n):
-                if random.random() < 0.1:  # Reset 10% of trails
-                    self.tau[i][j] = self.tau_max
-                    self.tau[j][i] = self.tau_max
+# --- pheromone initialisation (Eq. 7) ---
+tau = [[1.0/(num_parts*num_cities) for _ in range(num_cities)]
+       for _ in range(num_cities)]
 
-# For backward compatibility
-class ACO_Solver(EnhancedACO_Solver):
-    """Legacy class for compatibility with existing code."""
-    pass
-# -----------------------------------------------------------------
+# --- PSO particle structure ---
+particles = []
+for _ in range(num_parts):
+    a = random.uniform(*alpha_range)
+    b = random.uniform(*beta_range)
+    particles.append(
+        {"pos":[a,b],"vel":[0.0,0.0],
+         "pbest_pos":[a,b],"pbest_fit":float("inf")}
+    )
 
-max_it    = 40                 # PSO generations  (≤ 1 minute)
-num_parts = 40                 # swarm size
+# --- global best seed with nearest-neighbour tour ---
+g_best_tour = nearest_neighbour_start()
+g_best_len  = tour_length(g_best_tour)
+g_best_pos  = [particles[0]["pos"][0], particles[0]["pos"][1]]  # placeholder
 
-# --- Hyper‑parameter bounds:  (min , max)
-BOUNDS = {
-    "alpha"    : (0.5, 3.0),
-    "beta"     : (1.0, 5.0),
-    "rho"      : (0.02, 0.5),
-    "num_ants" : (max(5, num_cities//2), min(num_cities*2, 150))
-}
-
-def clamp(value, lo, hi):
-    return lo if value < lo else hi if value > hi else value
-
-# ---------- Particle Swarm Optimiser ----------------------------------------
-class PSO:
-    def __init__(self, n_particles=num_parts, w=0.7, c1=1.5, c2=1.5):
-        self.dim_names = list(BOUNDS.keys())
-        self.swarm = []
-        for _ in range(n_particles):
-            pos = {k: random.uniform(*BOUNDS[k]) for k in self.dim_names}
-            vel = {k: random.uniform(-abs(BOUNDS[k][1]-BOUNDS[k][0]),
-                                     abs(BOUNDS[k][1]-BOUNDS[k][0]))*0.1
-                   for k in self.dim_names}
-            self.swarm.append({"pos":pos, "vel":vel,
-                               "pbest":pos.copy(), "pbest_fit":float('inf')})
-        self.gbest      = None
-        self.gbest_fit  = float('inf')
-        self.w, self.c1, self.c2 = w, c1, c2
-
-    # ---- fitness = best tour length (using faster ACO evaluation) -----------
-    def fitness(self, params):
-        # Cache the fitness calculation results to avoid redundant computation
-        # Create a unique key for these parameters
-        param_key = tuple(sorted((k, round(v, 3)) for k, v in params.items()))
-        
-        # Check if we've already computed this fitness
-        if hasattr(self, 'fitness_cache') and param_key in self.fitness_cache:
-            return self.fitness_cache[param_key]
-            
-        # Clamp parameters for consistency
-        ants = int(round(params["num_ants"]))
-        ants = clamp(ants, int(BOUNDS["num_ants"][0]),
-                           int(BOUNDS["num_ants"][1]))
-        
-        # Use a faster ACO run with reduced iterations for PSO evaluation
-        # This is a significant speedup with minimal quality loss
-        aco = ACO_Solver(dist_matrix, alpha=params["alpha"],
-                         beta=params["beta"], rho=params["rho"],
-                         num_ants=ants, Q=100)
-        
-        # Use only 20 iterations for fitness evaluation instead of 60
-        # The relative quality between parameter sets stays similar
-        _, best_len = aco.run(20)
-        
-        # Initialize cache if it doesn't exist
-        if not hasattr(self, 'fitness_cache'):
-            self.fitness_cache = {}
-            
-        # Cache the result
-        self.fitness_cache[param_key] = best_len
-        return best_len
-
-    def update_swarm(self):
-        for p in self.swarm:
-            # ------------ update velocity & position -------------------------
-            for k in self.dim_names:
-                r1, r2   = random.random(), random.random()
-                cognitive = self.c1 * r1 * (p["pbest"][k] - p["pos"][k])
-                social    = self.c2 * r2 * (self.gbest[k] - p["pos"][k])
-                p["vel"][k] = self.w * p["vel"][k] + cognitive + social
-                p["pos"][k] += p["vel"][k]
-                p["pos"][k] = clamp(p["pos"][k], *BOUNDS[k])
-
-# ------------------------- main PSO loop -------------------------------------
-pso = PSO()
-deadline = start_time + 55        # don’t exceed 60 s total
-
+# ---------- main loop ----------
 for _ in range(max_it):
-    for particle in pso.swarm:
-        f = pso.fitness(particle["pos"])
-        if f < particle["pbest_fit"]:
-            particle["pbest_fit"] = f
-            particle["pbest"]     = particle["pos"].copy()
-        if f < pso.gbest_fit:
-            pso.gbest_fit  = f
-            pso.gbest      = particle["pos"].copy()
-    if time.time() > deadline:        # safety break
-        break
-    if pso.gbest:                     # skip first iter if still None
-        pso.update_swarm()
+    # (1) global evaporation once
+    for i in range(num_cities):
+        for j in range(i+1, num_cities):
+            tau[i][j] = tau[j][i] = (1.0 - rho) * tau[i][j]
 
-# ------------- run ACO once more with the best parameters --------------------
-best = pso.gbest
-ants_best = int(round(best["num_ants"]))
-aco_final = ACO_Solver(dist_matrix,
-                       alpha=best["alpha"],
-                       beta=best["beta"],
-                       rho =best["rho"],
-                       num_ants=ants_best,
-                       Q=100)
-tour, tour_length = aco_final.run(120)    # longer final AC exploitation
-# ---------------------------------------------------------------------------
+    # (2) evaluate each particle (local colony of inner_aco_loops ants)
+    for p in particles:
+        alpha, beta = p["pos"]
+        delta = [[0.0]*num_cities for _ in range(num_cities)]
 
-# Add helpful note about our enhanced algorithm
-added_note = (f"Enhanced ACO-TSP solver with 2-opt local search and adaptive parameters. "
-              f"Uses nearest neighbor initialization, candidate lists, and MAX-MIN AS "
-              f"with diversification strategies to avoid local minima.")
+        for _ in range(inner_aco_loops):
+            tour, L = construct_tour(alpha, beta, tau)
+            deposit = Q_const / L
+            for i in range(num_cities):
+                a, b = tour[i], tour[(i+1)%num_cities]
+                delta[a][b] += deposit
+                delta[b][a] += deposit
+            if L < p["pbest_fit"]:
+                p["pbest_fit"], p["pbest_pos"] = L, p["pos"][:]
+            if L < g_best_len:
+                g_best_len, g_best_tour, g_best_pos = L, tour[:], p["pos"][:]
+
+        # add accumulated pheromone deposit for this particle
+        for i in range(num_cities):
+            for j in range(i+1, num_cities):
+                tau[i][j] += delta[i][j]
+                tau[j][i]  = tau[i][j]
+
+    # (3) PSO velocity–position update
+    for p in particles:
+        for d in (0,1):
+            r1, r2 = random.random(), random.random()
+            p["vel"][d] = (
+                w * p["vel"][d]
+                + c1 * r1 * (p["pbest_pos"][d] - p["pos"][d])
+                + c2 * r2 * (g_best_pos[d]   - p["pos"][d])
+            )
+            p["pos"][d] += p["vel"][d]
+            low, high = alpha_range if d==0 else beta_range
+            p["pos"][d] = max(low, min(high, p["pos"][d]))
+
+# ---------- final 3-Opt ----------
+g_best_tour = three_opt(g_best_tour)
+g_best_len  = tour_length(g_best_tour)
+
+# ---------- hand results to wrapper ----------
+tour         = g_best_tour
+tour_length  = g_best_len
+added_note  += (f"Hybrid PSO–ACO–3Opt  m={num_parts}, colony={inner_aco_loops}, "
+                f"iter={max_it}.  Final α,β≈{g_best_pos}")
+# --------------------  END TSP CODE  --------------------
 
 
 

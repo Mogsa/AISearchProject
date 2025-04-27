@@ -1,0 +1,9 @@
+USER = fnlz75 (Morgan Rosca),
+ALGORITHM CODE = PS, NAME OF CITY-FILE = AISearchfile058.txt,
+SIZE = 58, TOUR LENGTH = 26479,
+56,19,29,26,20,23,13,45,35,14,53,46,34,18,38,51,16,12,8,21,48,22,33,9,50,0,3,36,24,47,54,4,7,57,28,1,27,5,44,39,52,30,37,11,41,25,40,42,2,6,10,17,32,43,49,31,55,15,
+NOTE = Highly-optimized ACO-PSO Hybrid with anti-stagnation strategies and advanced performance optimizations. Base PSO Params: theta=0.75, alpha=1.5, beta=1.5, delta=2. ACO Params: rho=0.1, q=100.0, init_ph=0.1. Runtime optimizations: Nearest-neighbor warm starting, cached pheromone biased targets, delta-evaluation in 2-opt, pre-generated random values, batch processing of particles, early stopping criteria, lookup tables for expensive operations, dynamic resource allocation based on problem size, selective operation skipping for non-improved states, and in-place operations. Algorithm enhancements: Multi-swarm with diversified parameters, adaptive 2-opt local search, optimized simulated annealing acceptance, intelligent particle resetting, stagnation detection, adaptive parameter control, and information exchange between swarms.
+The parameter values are 'max_it' = 1000 and 'num_parts' = 290.
+RUN-TIME = 108.1 seconds.
+DATE-TIME = 22/04/2025-08:41:22.
+CERTIFICATE = 2818.

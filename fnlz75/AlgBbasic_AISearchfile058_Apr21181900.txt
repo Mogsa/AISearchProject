@@ -1,0 +1,9 @@
+USER = fnlz75 (Morgan Rosca),
+ALGORITHM CODE = PS, NAME OF CITY-FILE = AISearchfile058.txt,
+SIZE = 58, TOUR LENGTH = 69267,
+24,27,54,28,23,26,13,0,37,15,19,20,52,2,9,48,6,40,25,44,8,21,51,16,5,12,50,30,32,29,10,31,55,17,49,43,56,11,41,42,57,53,46,22,39,1,14,4,36,3,45,38,18,34,35,33,7,47,
+NOTE = Basic PSO for TSP with 100 particles and simple swap operations.
+The parameter values are 'max_it' = 5000 and 'num_parts' = 100.
+RUN-TIME = 4.6 seconds.
+DATE-TIME = 21/04/2025-18:19:00.
+CERTIFICATE = 2861.

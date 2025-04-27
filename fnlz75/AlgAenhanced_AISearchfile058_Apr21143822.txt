@@ -1,9 +1,0 @@
-USER = fnlz75 (Morgan Rosca),
-ALGORITHM CODE = AC, NAME OF CITY-FILE = AISearchfile058.txt,
-SIZE = 58, TOUR LENGTH = 25395,
-0,3,36,24,47,54,4,57,7,28,27,1,5,44,39,52,30,37,11,41,40,25,42,2,6,10,17,32,43,49,31,55,15,56,19,29,20,26,13,23,46,53,34,45,35,14,48,21,8,12,22,33,16,51,18,38,50,9,
-NOTE = MMAS + Iter-Best 2-opt + CL(k=20) + HI + AdaptVis(L=0.50) Params: a=1.0, b=2.0, r=0.30. Final tau_max~2.78e-05, tau_min~2.39e-07.
-The parameter values are 'max_it' = 1600 and 'num_ants' = 25.
-RUN-TIME = 21.9 seconds.
-DATE-TIME = 21/04/2025-14:38:22.
-CERTIFICATE = 2755.
