@@ -15,10 +15,7 @@ import os
 import sys
 import time
 import random
-import math
-import statistics
 from datetime import datetime
-from functools import lru_cache
 
 ############ START OF SECTOR 0 (IGNORE THIS COMMENT)
 ############
@@ -161,7 +158,7 @@ def read_in_algorithm_codes_and_tariffs(alg_codes_file):
 ############
 ############ END OF SECTOR 0 (IGNORE THIS COMMENT)
 
-input_file = "AISearchfile180.txt"
+input_file = "AISearchfile175.txt"
 
 ############ START OF SECTOR 1 (IGNORE THIS COMMENT)
 ############
@@ -333,7 +330,7 @@ start_time = time.time()
 ############
 ############ END OF SECTOR 8 (IGNORE THIS COMMENT)
 
-added_note = "Optimized PSO-ACO with performance enhancements"
+added_note = ""
 
 ############ START OF SECTOR 9 (IGNORE THIS COMMENT)
 ############
@@ -358,177 +355,212 @@ added_note = "Optimized PSO-ACO with performance enhancements"
 ############
 ############ END OF SECTOR 9 (IGNORE THIS COMMENT)
 
-############ START OF SECTOR 9 (IGNORE THIS COMMENT)
-# -------------------- BEGIN TSP CODE --------------------
+
+
+# ---------------------------------------------------------------------------
+# Hybrid PSO–ACO–3‑Opt implementation (faithful to Mahia et al., 2015)
+# **Paste this whole block between SECTOR 9 and SECTOR 10 of the skeleton.**
 #
-#  Hybrid PSO – ACO – 3-Opt   (paper-level variant)
-#
+# Assumptions about the skeleton:
+#   • `num_cities`  – integer, number of cities (already parsed for us)
+#   • `dist_matrix` – 2‑D list [num_cities][num_cities] of symmetric distances
+#   •  We must finally assign **tour**   – a permutation of 0..num_cities‑1
+#                     and **tour_length** – its total length (int or float)
+#   •  Variables `max_it`, `num_ants`, `num_parts` should be set if we want
+#      them recorded in the generated TOUR file.
+# ---------------------------------------------------------------------------
 
-# ---------- Parameters ----------
-num_parts       = 10        # m  = particles = top-level ants
-inner_aco_loops = 10        # colony size per particle   (paper uses < |V|)
-max_it          = 800       # PSO iterations  (≈ paper)
-w, c1, c2       = 0.7, 2.0, 2.0
-rho             = 0.10      # pheromone evaporation
-Q_const         = 100
-alpha_range     = (0.0, 3.0)
-beta_range      = (0.0, 3.0)
-# --------------------------------
+import random, math, time
+from typing import List, Tuple
 
-import math, random
-random.seed()                # different run each time
+# ------------------------- helper utilities -------------------------------
+City = int
+Tour = List[City]
+Matrix = List[List[float]]
+EPS = 1e-9
 
-# ---------- helpers ----------
-def tour_length(tour):
-    s = sum(dist_matrix[tour[i]][tour[(i+1) % num_cities]]
-            for i in range(num_cities))
-    return s
+def length_of(tour: Tour, dist: Matrix) -> float:
+    return sum(dist[tour[i]][tour[(i + 1) % len(tour)]] for i in range(len(tour)))
 
-def nearest_neighbour_start():
-    rem = set(range(num_cities))
-    cur = random.choice(tuple(rem))
-    tour = [cur]; rem.remove(cur)
-    while rem:
-        nxt = min(rem, key=lambda j: dist_matrix[cur][j])
-        tour.append(nxt); rem.remove(nxt); cur = nxt
-    return tour
+# ------------------------- 3‑Opt (deterministic) --------------------------
 
-def construct_tour(alpha, beta, tau):
-    rem = set(range(num_cities))
-    cur = random.randrange(num_cities)
-    tour = [cur]; rem.remove(cur)
-    while rem:
-        weights, cities = [], []
-        denom = 0.0
-        for j in rem:
-            # Ensure non-zero distance to prevent division by zero
-            distance = max(dist_matrix[cur][j], 1e-10)  # Minimum distance
-            weight = (tau[cur][j] ** alpha) * ((1.0 / distance) ** beta)
-            weights.append(weight); cities.append(j); denom += weight
-        r = random.random() * denom
-        acc = 0.0
-        for weight, j in zip(weights, cities):
-            acc += weight
-            if acc >= r:
-                nxt = j; break
-        tour.append(nxt); rem.remove(nxt); cur = nxt
-    return tour, tour_length(tour)
-
-def three_opt(t):
-    """full 3-Opt until no improving reconnection exists (deterministic)"""
+def three_opt(tour: Tour, dist: Matrix) -> Tuple[Tour, float]:
+    n = len(tour)
+    best = tour[:]
+    best_len = length_of(best, dist)
     improved = True
     while improved:
         improved = False
-        for i in range(num_cities-2):
-            for j in range(i+2, num_cities):
-                for k in range(j+2, num_cities + (i>0)):   # allow wrap
-                    a,b = t[i], t[(i+1)%num_cities]
-                    c,d = t[j], t[(j+1)%num_cities]
-                    e,f = t[k%num_cities], t[(k+1)%num_cities]
-                    old = (dist_matrix[a][b] + dist_matrix[c][d] +
-                           dist_matrix[e][f])
-                    # 7 alternative reconnections (check four most useful)
-                    # (1) flip (b…c)
-                    gain = (dist_matrix[a][c] + dist_matrix[b][d] +
-                            dist_matrix[e][f]) - old
-                    if gain < 0:
-                        t[i+1:j+1] = reversed(t[i+1:j+1]); improved = True; break
-                    # (2) flip (d…e)
-                    gain = (dist_matrix[a][b] + dist_matrix[c][e] +
-                            dist_matrix[d][f]) - old
-                    if gain < 0:
-                        t[j+1:k+1] = reversed(t[j+1:k+1]); improved = True; break
-                    # (3) flip (b…c) and (d…e)
-                    gain = (dist_matrix[a][c] + dist_matrix[b][e] +
-                            dist_matrix[d][f]) - old
-                    if gain < 0:
-                        t[i+1:j+1] = reversed(t[i+1:j+1])
-                        t[j+1:k+1] = reversed(t[j+1:k+1])
-                        improved = True; break
-                    # (4) reorder segments (b…c)(d…e) → (d…e)(b…c)
-                    gain = (dist_matrix[a][d] + dist_matrix[e][b] +
-                            dist_matrix[c][f]) - old
-                    if gain < 0:
-                        new_seg = t[j+1:k+1] + t[i+1:j+1]
-                        t[i+1:k+1] = new_seg
-                        improved = True; break
+        for i in range(n - 2):
+            for j in range(i + 1, n - 1):
+                for k in range(j + 1, n):
+                    cand = _apply_3opt(best, i, j, k)
+                    cand_len = length_of(cand, dist)
+                    if cand_len + EPS < best_len:
+                        best, best_len = cand, cand_len
+                        improved = True
+                        break
                 if improved: break
             if improved: break
-    return t
-# --------------------------------
+    return best, best_len
 
-# --- pheromone initialisation (Eq. 7) ---
-tau = [[1.0/(num_parts*num_cities) for _ in range(num_cities)]
-       for _ in range(num_cities)]
+def _apply_3opt(t: Tour, i: int, j: int, k: int) -> Tour:
+    # All eight reconnections; pick the shortest
+    seg0 = t[:i + 1]
+    seg1 = t[i + 1:j + 1]
+    seg2 = t[j + 1:k + 1]
+    seg3 = t[k + 1:]
+    opts = [
+        seg0 + seg1 + seg2 + seg3,
+        seg0 + seg1[::-1] + seg2 + seg3,
+        seg0 + seg1 + seg2[::-1] + seg3,
+        seg0 + seg1[::-1] + seg2[::-1] + seg3,
+        seg0 + seg2 + seg1 + seg3,
+        seg0 + seg2[::-1] + seg1 + seg3,
+        seg0 + seg2 + seg1[::-1] + seg3,
+        seg0 + seg2[::-1] + seg1[::-1] + seg3,
+    ]
+    return min(opts, key=lambda x: length_of(x, dist_matrix))
 
-# --- PSO particle structure ---
-particles = []
-for _ in range(num_parts):
-    a = random.uniform(*alpha_range)
-    b = random.uniform(*beta_range)
-    particles.append(
-        {"pos":[a,b],"vel":[0.0,0.0],
-         "pbest_pos":[a,b],"pbest_fit":float("inf")}
-    )
+# ------------------------- Ant Colony (classic) ---------------------------
 
-# --- global best seed with nearest-neighbour tour ---
-g_best_tour = nearest_neighbour_start()
-g_best_len  = tour_length(g_best_tour)
-g_best_pos  = [particles[0]["pos"][0], particles[0]["pos"][1]]  # placeholder
+def nearest_neighbor(dist: Matrix) -> float:
+    n = len(dist)
+    best = math.inf
+    for s in range(n):
+        unv = set(range(n)) - {s}
+        cur, l = s, 0.0
+        while unv:
+            # Use a small value instead of zero for distance
+            nxt = min(unv, key=lambda j: max(0.1, dist[cur][j]))
+            l += max(0.1, dist[cur][nxt])  # Avoid adding zeros
+            unv.remove(nxt)
+            cur = nxt
+        best = min(best, l)
+    return best
 
-# ---------- main loop ----------
-for _ in range(max_it):
-    # (1) global evaporation once
-    for i in range(num_cities):
-        for j in range(i+1, num_cities):
-            tau[i][j] = tau[j][i] = (1.0 - rho) * tau[i][j]
+def ant_colony(alpha: float, beta: float, *, ants: int = 10, iterations: int = 200, rho: float = 0.1, Q: float = 1.0) -> Tuple[Tour, float]:
+    n = num_cities
+    # Avoid division by zero by using a very small value for zero distances
+    eta = [[0 if i == j else (1.0 / dist_matrix[i][j] if dist_matrix[i][j] > 0 else 1e6) for j in range(n)] for i in range(n)]
+    tau0 = 1.0 / (n * max(0.1, nearest_neighbor(dist_matrix)))  # Avoid div by zero
+    tau = [[tau0] * n for _ in range(n)]
+    best_tour, best_len = None, math.inf
+    for _ in range(iterations):
+        tours, lengths = [], []
+        for _ in range(ants):
+            start = random.randrange(n)
+            tour = [start]
+            unv = set(range(n)) - {start}
+            cur = start
+            while unv:
+                probs, total = [], 0.0
+                for j in unv:
+                    # Make sure we don't get NaN from 0^0 when alpha or beta is 0
+                    tau_val = max(1e-10, tau[cur][j]) ** alpha if alpha > 0 else 1.0
+                    eta_val = max(1e-10, eta[cur][j]) ** beta if beta > 0 else 1.0
+                    p = tau_val * eta_val
+                    probs.append((j, p))
+                    total += p
+                
+                # If total is too small, just pick randomly
+                if total < 1e-10:
+                    nxt = random.choice(list(unv))
+                else:
+                    r = random.random() * total
+                    cum = 0.0
+                    nxt = list(unv)[0]  # Default in case we don't find one
+                    for city, p in probs:
+                        cum += p
+                        if cum >= r:
+                            nxt = city
+                            break
+                tour.append(nxt)
+                unv.remove(nxt)
+                cur = nxt
+            l = length_of(tour, dist_matrix)
+            tours.append(tour); lengths.append(l)
+            if l < best_len:
+                best_tour, best_len = tour, l
+        # global pheromone update
+        for i in range(n):
+            for j in range(n):
+                tau[i][j] *= (1 - rho)
+        for tour, l in zip(tours, lengths):
+            delta = Q / l
+            for i in range(n):
+                a, b = tour[i], tour[(i + 1) % n]
+                tau[a][b] += delta
+                tau[b][a] += delta
+    return best_tour, best_len
 
-    # (2) evaluate each particle (local colony of inner_aco_loops ants)
-    for p in particles:
-        alpha, beta = p["pos"]
-        delta = [[0.0]*num_cities for _ in range(num_cities)]
+# ---------------------- Particle Swarm (2‑D search) -----------------------
 
-        for _ in range(inner_aco_loops):
-            tour, L = construct_tour(alpha, beta, tau)
-            deposit = Q_const / L
-            for i in range(num_cities):
-                a, b = tour[i], tour[(i+1)%num_cities]
-                delta[a][b] += deposit
-                delta[b][a] += deposit
-            if L < p["pbest_fit"]:
-                p["pbest_fit"], p["pbest_pos"] = L, p["pos"][:]
-            if L < g_best_len:
-                g_best_len, g_best_tour, g_best_pos = L, tour[:], p["pos"][:]
+def pso_find_alpha_beta(*, swarm: int = 10, iters: int = 30, w: float = 0.7, c1: float = 2.0, c2: float = 2.0):
+    # bounds as in the paper: α, β ∈ [0,2]
+    ALB, AUB = 0.0, 2.0
+    BLB, BUB = 0.0, 2.0
+    particles = []
+    for _ in range(swarm):
+        a = random.uniform(ALB, AUB)
+        b = random.uniform(BLB, BUB)
+        va, vb = random.uniform(-0.5, 0.5), random.uniform(-0.5, 0.5)
+        particles.append({'pos':[a,b], 'vel':[va,vb], 'best':[a,b], 'best_val':math.inf})
+    gbest, gbest_val = [None, None], math.inf
+    for _ in range(iters):
+        for p in particles:
+            _, val = ant_colony(p['pos'][0], p['pos'][1], ants=10, iterations=20)
+            if val < p['best_val']:
+                p['best_val'], p['best'] = val, p['pos'][:]
+            if val < gbest_val:
+                gbest_val, gbest = val, p['pos'][:]
+        for p in particles:
+            for d in (0,1):
+                r1, r2 = random.random(), random.random()
+                p['vel'][d] = (w * p['vel'][d] + c1 * r1 * (p['best'][d] - p['pos'][d]) +
+                               c2 * r2 * (gbest[d] - p['pos'][d]))
+                p['pos'][d] += p['vel'][d]
+            p['pos'][0] = max(ALB, min(AUB, p['pos'][0]))
+            p['pos'][1] = max(BLB, min(BUB, p['pos'][1]))
+    return gbest[0], gbest[1]
 
-        # add accumulated pheromone deposit for this particle
-        for i in range(num_cities):
-            for j in range(i+1, num_cities):
-                tau[i][j] += delta[i][j]
-                tau[j][i]  = tau[i][j]
+# --------------------------- MAIN BODY ------------------------------------
 
-    # (3) PSO velocity–position update
-    for p in particles:
-        for d in (0,1):
-            r1, r2 = random.random(), random.random()
-            p["vel"][d] = (
-                w * p["vel"][d]
-                + c1 * r1 * (p["pbest_pos"][d] - p["pos"][d])
-                + c2 * r2 * (g_best_pos[d]   - p["pos"][d])
-            )
-            p["pos"][d] += p["vel"][d]
-            low, high = alpha_range if d==0 else beta_range
-            p["pos"][d] = max(low, min(high, p["pos"][d]))
+seed = int(time.time()) % 2**32
+random.seed(seed)
 
-# ---------- final 3-Opt ----------
-g_best_tour = three_opt(g_best_tour)
-g_best_len  = tour_length(g_best_tour)
+# 1. expose parameters for skeleton bookkeeping
+max_it = 400      # ACO iterations after PSO phase
+num_parts = 10    # PSO swarm size (for note only)
+num_ants  = 10    # ants per ACO iteration
 
-# ---------- hand results to wrapper ----------
-tour         = g_best_tour
-tour_length  = g_best_len
-added_note  += (f"Hybrid PSO–ACO–3Opt  m={num_parts}, colony={inner_aco_loops}, "
-                f"iter={max_it}.  Final α,β≈{g_best_pos}")
-# --------------------  END TSP CODE  --------------------
+# 2. Stage 1 – PSO searches best (alpha, beta)
+alpha, beta = pso_find_alpha_beta(swarm=num_parts, iters=15)
+
+# 3. Stage 2 – Run a longer ACO with that pair
+best_tour, best_len = ant_colony(alpha, beta, ants=num_ants, iterations=max_it)
+
+# 4. Stage 3 – Apply full 3‑Opt once
+best_tour, best_len = three_opt(best_tour, dist_matrix)
+
+# 5. Deliver reserved variables
+tour = best_tour
+tour_length = int(round(best_len))
+
+# Optional: annotate
+added_note += (f"\nPSO‑ACO‑3Opt (faithful): α={alpha:.3f}, β={beta:.3f}, "
+               f"seed={seed}, max_it={max_it}, ants={num_ants}, swarm={num_parts}.")
+
+
+
+
+
+
+
+
+
+
+
 
 
 

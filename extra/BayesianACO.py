@@ -14,7 +14,7 @@ from skopt.plots import plot_convergence, plot_objective
 
 # Import necessary functions from AlphaBetaSearch.py
 # We'll reuse the ACO code and evaluation functions
-from AlphaBetaSearch import (
+from extra.AlphaBetaSearch import (
     run_aco_with_params, 
     read_file_into_string, 
     remove_all_spaces, 
@@ -193,13 +193,13 @@ def batch_bayesian_optimization(city_files=None, trials_per_eval=2, evals_per_ci
             "AISearchfile012.txt": 30,  # Small, can do more evaluations
             "AISearchfile017.txt": 30,
             "AISearchfile021.txt": 30,
-            "AISearchfile026.txt": 25,
-            "AISearchfile042.txt": 25,
-            "AISearchfile048.txt": 20,
-            "AISearchfile058.txt": 20,
-            "AISearchfile175.txt": 15,  # Larger, reduce evaluations
-            "AISearchfile180.txt": 15,
-            "AISearchfile535.txt": 10   # Very large, minimum evaluations
+            "AISearchfile026.txt": 30,
+            "AISearchfile042.txt": 30,
+            "AISearchfile048.txt": 30,
+            "AISearchfile058.txt": 30,
+            "AISearchfile175.txt": 30,  # Larger, reduce evaluations
+            "AISearchfile180.txt": 30,
+            "AISearchfile535.txt": 30   # Very large, minimum evaluations
         }
     
     # Create a summary file
