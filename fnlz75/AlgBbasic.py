@@ -357,40 +357,33 @@ added_note = ""
 ############
 ############ END OF SECTOR 9 (IGNORE THIS COMMENT)
 
-# filepath: /Users/morgan/Documents/GitHub/AISearch/fnlz75/AlgBbasic.py
-# ... (code reading city file, building dist_matrix) ...
-
-# ---------- user-tweakable parameters ----------
-# These can be modified directly in the code without command-line arguments
+# ---------- parameters ----------
 rng_seed = 123456       # Random number generator seed        
 random.seed(rng_seed)  # Set the random seed
 
 # PSO parameters - modify these values as needed
 num_parts = 60         # particles = swarm size
 max_iter  = 1000        # maximum iterations
-w_start   = 0.5         # inertia weight (start/constant)
-c1        = 1.0         # cognitive weight (alpha)
-c2        = 1.0         # social weight (beta)
+w_start   = 0.5         # inertia weight 
+c1        = 1.0         # cognitive weight 
+c2        = 1.0         # social weight 
 # ----------------------------------------------
 
 # ---------- utility helpers ----------
-def tour_length_of(t):
-    """Return length of tour t using global dist_matrix."""
+def tour_length_of(t): # Calculate the length of a tour
+    
     d = 0
     for k in range(num_cities - 1):
         d += dist_matrix[t[k]][t[k + 1]]
     return d + dist_matrix[t[-1]][t[0]]
 
 def apply_velocity(t, v):
-    """Apply a velocity (list of swaps) to tour (in place)"""
+
     for i, j in v:
         t[i], t[j] = t[j], t[i]
 
 def multiply_velocity(v, factor):
-    """
-    Scalar * velocity (Lecture 10, slide 6):
-    • int(factor) whole copies  • fractional part keeps prefix
-    """
+   
     if factor <= 0.0 or not v:
         return []
     k_whole = int(factor)
@@ -400,11 +393,7 @@ def multiply_velocity(v, factor):
     return scaled
 
 def difference_velocity(a, b):
-    """
-    Return minimal* sequence of swaps turning tour a into b.
-    (*not provably minimal, but |v| ≤ num_cities − 1, and unique
-      given the deterministic left-to-right rule.)
-    """
+   
     temp = a.copy()
     v    = []
     for idx in range(num_cities):
@@ -415,7 +404,7 @@ def difference_velocity(a, b):
     return v
 
 def random_velocity():
-    """Generate a random list of transpositions."""
+    
     length = random.randint(1, num_cities)
     return [(random.randrange(num_cities), random.randrange(num_cities)) 
             for _ in range(length)]
@@ -480,20 +469,6 @@ tour_length = gbest_len
 # Record run parameters in added_note for the template’s bookkeeping
 added_note += f"PSO: max_it={max_iter}, num_parts={num_parts}, " \
               f"w={w_start}, c1={c1}, c2={c2}."
-# --------------------------------------------------------------------
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

@@ -15,10 +15,7 @@ import os
 import sys
 import time
 import random
-import math
-import statistics
 from datetime import datetime
-from functools import lru_cache
 
 ############ START OF SECTOR 0 (IGNORE THIS COMMENT)
 ############
@@ -161,7 +158,7 @@ def read_in_algorithm_codes_and_tariffs(alg_codes_file):
 ############
 ############ END OF SECTOR 0 (IGNORE THIS COMMENT)
 
-input_file = "AISearchfile180.txt"
+input_file = "AISearchfile048.txt"
 
 ############ START OF SECTOR 1 (IGNORE THIS COMMENT)
 ############
@@ -286,8 +283,8 @@ my_user_name = "fnlz75"
 ############
 ############ END OF SECTOR 6 (IGNORE THIS COMMENT)
 
-my_first_name = ""
-my_last_name = ""
+my_first_name = "Morgan"
+my_last_name = "Rosca"
 
 ############ START OF SECTOR 7 (IGNORE THIS COMMENT)
 ############
@@ -333,7 +330,7 @@ start_time = time.time()
 ############
 ############ END OF SECTOR 8 (IGNORE THIS COMMENT)
 
-added_note = "Optimized PSO-ACO with performance enhancements"
+added_note = ""
 
 ############ START OF SECTOR 9 (IGNORE THIS COMMENT)
 ############
@@ -358,177 +355,517 @@ added_note = "Optimized PSO-ACO with performance enhancements"
 ############
 ############ END OF SECTOR 9 (IGNORE THIS COMMENT)
 
-############ START OF SECTOR 9 (IGNORE THIS COMMENT)
-# -------------------- BEGIN TSP CODE --------------------
-#
-#  Hybrid PSO – ACO – 3-Opt   (paper-level variant)
-#
 
-# ---------- Parameters ----------
-num_parts       = 10        # m  = particles = top-level ants
-inner_aco_loops = 10        # colony size per particle   (paper uses < |V|)
-max_it          = 800       # PSO iterations  (≈ paper)
-w, c1, c2       = 0.7, 2.0, 2.0
-rho             = 0.10      # pheromone evaporation
-Q_const         = 100
-alpha_range     = (0.0, 2.0)
-beta_range      = (0.0, 2.0)
-# --------------------------------
 
-import math, random
-random.seed()                # different run each time
+import random, math, time
+from typing import List, Tuple
 
-# ---------- helpers ----------
-def tour_length(tour):
-    s = sum(dist_matrix[tour[i]][tour[(i+1) % num_cities]]
-            for i in range(num_cities))
-    return s
+# ------------------------- helper utilities -------------------------------
+City = int
+Tour = List[City]
+Matrix = List[List[float]]
+EPS = 1e-9
 
-def nearest_neighbour_start():
-    rem = set(range(num_cities))
-    cur = random.choice(tuple(rem))
-    tour = [cur]; rem.remove(cur)
-    while rem:
-        nxt = min(rem, key=lambda j: dist_matrix[cur][j])
-        tour.append(nxt); rem.remove(nxt); cur = nxt
-    return tour
+def length_of(tour: Tour, dist: Matrix) -> float:
+    return sum(dist[tour[i]][tour[(i + 1) % len(tour)]] for i in range(len(tour)))
 
-def construct_tour(alpha, beta, tau):
-    rem = set(range(num_cities))
-    cur = random.randrange(num_cities)
-    tour = [cur]; rem.remove(cur)
-    while rem:
-        weights, cities = [], []
-        denom = 0.0
-        for j in rem:
-            # Ensure non-zero distance to prevent division by zero
-            distance = max(dist_matrix[cur][j], 1e-10)  # Minimum distance
-            weight = (tau[cur][j] ** alpha) * ((1.0 / distance) ** beta)
-            weights.append(weight); cities.append(j); denom += weight
-        r = random.random() * denom
-        acc = 0.0
-        for weight, j in zip(weights, cities):
-            acc += weight
-            if acc >= r:
-                nxt = j; break
-        tour.append(nxt); rem.remove(nxt); cur = nxt
-    return tour, tour_length(tour)
+# ------------------------- 3‑Opt (deterministic) --------------------------
 
-def three_opt(t):
-    """full 3-Opt until no improving reconnection exists (deterministic)"""
-    improved = True
-    while improved:
+def build_candidate_lists(dist: Matrix, candidate_size: int = 20) -> List[List[int]]:
+    
+    #For each city i, build a list of its candidate_size nearest neighbors.
+    
+    n = len(dist)
+    candidates = []
+    for i in range(n):
+        # Create list of other cities sorted by distance
+        nbrs = [(j, dist[i][j]) for j in range(n) if j != i]
+        nbrs.sort(key=lambda x: x[1])  # Sort by distance
+        candidates.append([j for j, _ in nbrs[:candidate_size]])
+    return candidates
+
+def delta_3opt(tour: Tour, dist: Matrix, i: int, j: int, k: int) -> Tuple[float, int]:
+    """
+    Compute the best 3-opt delta (improvement) for indices i<j<k.
+    Returns (best_gain, move_type) where move_type is 0-7, or (0, -1) if no improvement.
+    """
+    n = len(tour)
+    # Get cities at each position and their neighbors in the tour
+    a, b = tour[i], tour[(i+1) % n]
+    c, d = tour[j], tour[(j+1) % n]
+    e, f = tour[(k) % n], tour[(k+1) % n]
+    
+    # Original edges that will be potentially removed
+    d_ab = dist[a][b]
+    d_cd = dist[c][d]
+    d_ef = dist[e][f]
+    
+    # Cost of removing three edges
+    removed = d_ab + d_cd + d_ef
+    
+    # Calculate costs for all possible reconnections
+    # Option 0: Original tour (no change)
+    # Option 1: Reverse segment i+1 to j
+    gain1 = removed - (dist[a][c] + dist[b][d] + dist[e][f])
+    
+    # Option 2: Reverse segment j+1 to k
+    gain2 = removed - (dist[a][b] + dist[c][e] + dist[d][f])
+    
+    # Option 3: Reverse both segments
+    gain3 = removed - (dist[a][c] + dist[b][e] + dist[d][f])
+    
+    # Option 4: Replace (a,b) and (c,d) with (a,d) and (b,c)
+    gain4 = removed - (dist[a][d] + dist[b][c] + dist[e][f])
+    
+    # Options 5-7: Other possible reconnections
+    gain5 = removed - (dist[a][e] + dist[b][d] + dist[c][f])
+    gain6 = removed - (dist[a][d] + dist[b][f] + dist[c][e])
+    gain7 = removed - (dist[a][e] + dist[b][c] + dist[d][f])
+    
+    # Find the best option
+    gains = [0, gain1, gain2, gain3, gain4, gain5, gain6, gain7]
+    best_gain = max(gains)
+    best_move = gains.index(best_gain)
+    
+    # Only return a move if it improves the tour
+    if best_gain <= EPS:
+        return 0, -1
+    return best_gain, best_move
+
+def apply_3opt_move(tour: Tour, i: int, j: int, k: int, move_type: int) -> Tour:
+    
+    #Apply a 3-opt move of the specified type to the tour.
+    
+    n = len(tour)
+    # Extract segments
+    a, b = i, (i+1) % n
+    c, d = j, (j+1) % n
+    e, f = k, (k+1) % n
+    
+    # Normalize indices to handle wrap-around
+    # Ensure i < j < k < n for segment extraction
+    normalized_indices = []
+    for idx in [i, j, k]:
+        if idx >= n:
+            normalized_indices.append(idx - n)
+        else:
+            normalized_indices.append(idx)
+    
+    i, j, k = sorted(normalized_indices)
+    
+    # Extract segments
+    seg1 = tour[:i+1]
+    seg2 = tour[i+1:j+1]
+    seg3 = tour[j+1:k+1]
+    seg4 = tour[k+1:] if k < n-1 else []
+    
+    # Apply the move based on move_type
+    if move_type == 1:   # Reverse seg2
+        return seg1 + seg2[::-1] + seg3 + seg4
+    elif move_type == 2: # Reverse seg3
+        return seg1 + seg2 + seg3[::-1] + seg4
+    elif move_type == 3: # Reverse both seg2 and seg3
+        return seg1 + seg2[::-1] + seg3[::-1] + seg4
+    elif move_type == 4: # Swap seg2 and seg3
+        return seg1 + seg3 + seg2 + seg4
+    elif move_type == 5: # Swap and reverse combinations
+        return seg1 + seg3[::-1] + seg2 + seg4
+    elif move_type == 6:
+        return seg1 + seg3 + seg2[::-1] + seg4
+    elif move_type == 7:
+        return seg1 + seg3[::-1] + seg2[::-1] + seg4
+    else:
+        return tour  # No change
+
+def three_opt(tour: Tour, dist: Matrix, max_time_seconds: float = 300.0) -> Tuple[Tour, float]:
+    
+    #Enhanced 3-opt algorithm with candidate lists and delta evaluation
+
+    n = len(tour)
+    start_time = time.time()
+    
+    # Adjust candidate list size based on problem size
+    candidate_size = min(30, max(15, n // 10))
+    candidates = build_candidate_lists(dist, candidate_size)
+    
+    # Initialize best tour
+    best = tour[:]
+    best_len = length_of(best, dist)
+    
+    # Loop until no more improvements or time limit
+    iteration = 0
+    total_improvements = 0
+    
+    while True:
+        iteration += 1
         improved = False
-        for i in range(num_cities-2):
-            for j in range(i+2, num_cities):
-                for k in range(j+2, num_cities + (i>0)):   # allow wrap
-                    a,b = t[i], t[(i+1)%num_cities]
-                    c,d = t[j], t[(j+1)%num_cities]
-                    e,f = t[k%num_cities], t[(k+1)%num_cities]
-                    old = (dist_matrix[a][b] + dist_matrix[c][d] +
-                           dist_matrix[e][f])
-                    # 7 alternative reconnections (check four most useful)
-                    # (1) flip (b…c)
-                    gain = (dist_matrix[a][c] + dist_matrix[b][d] +
-                            dist_matrix[e][f]) - old
-                    if gain < 0:
-                        t[i+1:j+1] = reversed(t[i+1:j+1]); improved = True; break
-                    # (2) flip (d…e)
-                    gain = (dist_matrix[a][b] + dist_matrix[c][e] +
-                            dist_matrix[d][f]) - old
-                    if gain < 0:
-                        t[j+1:k+1] = reversed(t[j+1:k+1]); improved = True; break
-                    # (3) flip (b…c) and (d…e)
-                    gain = (dist_matrix[a][c] + dist_matrix[b][e] +
-                            dist_matrix[d][f]) - old
-                    if gain < 0:
-                        t[i+1:j+1] = reversed(t[i+1:j+1])
-                        t[j+1:k+1] = reversed(t[j+1:k+1])
-                        improved = True; break
-                    # (4) reorder segments (b…c)(d…e) → (d…e)(b…c)
-                    gain = (dist_matrix[a][d] + dist_matrix[e][b] +
-                            dist_matrix[c][f]) - old
-                    if gain < 0:
-                        new_seg = t[j+1:k+1] + t[i+1:j+1]
-                        t[i+1:k+1] = new_seg
-                        improved = True; break
-                if improved: break
-            if improved: break
-    return t
-# --------------------------------
+        improvements_this_iter = 0
+        
+        # Check time limit
+        if time.time() - start_time > max_time_seconds:
+            print(f"Time limit reached after {iteration} iterations")
+            break
+        
+        # For each city, try 3-opt moves using candidate lists
+        for i in range(n):
+            # Look at the neighbors of the current city in the tour
+            current = best[i]
+            next_city = best[(i+1) % n]
+            
+            # Try to replace the edge (current, next_city) using candidate lists
+            for c1 in candidates[current]:
+                # Skip if c1 is already the next city
+                if c1 == next_city:
+                    continue
+                
+                # Find j where best[j] == c1
+                try:
+                    j = best.index(c1)
+                except ValueError:
+                    continue
+                
+                # Ensure i < j
+                if j <= i:
+                    continue
+                
+                # Now try to find a third city from the candidates
+                for c2 in candidates[best[j]]:
+                    # Find k where best[k] == c2
+                    try:
+                        k = best.index(c2)
+                    except ValueError:
+                        continue
+                    
+                    # Ensure j < k
+                    if k <= j or k <= i:
+                        continue
+                    
+                    # Calculate delta and move type
+                    gain, move_type = delta_3opt(best, dist, i, j, k)
+                    
+                    # If improvement found, apply it
+                    if gain > EPS and move_type >= 0:
+                        new_tour = apply_3opt_move(best, i, j, k, move_type)
+                        new_len = length_of(new_tour, dist)
+                        
+                        # Verify the improvement
+                        if new_len < best_len - EPS:
+                            best = new_tour
+                            best_len = new_len
+                            improved = True
+                            improvements_this_iter += 1
+                            total_improvements += 1
+                            # Break inner loop to restart with the new tour
+                            break
+                
+                # Break middle loop if improved
+                if improved:
+                    break
+            
+            # Break outer loop if improved
+            if improved:
+                break
+        
+        # Report progress every iteration
+        elapsed = time.time() - start_time
+        
+        # Stop if no improvements in this iteration
+        if not improved:
+            break
+        
+    
+    # Report final results
+    elapsed = time.time() - start_time
+    print(f"3-opt completed with {total_improvements} total improvements in {elapsed:.2f} seconds")
+    return best, best_len
 
-# --- pheromone initialisation (Eq. 7) ---
-tau = [[1.0/(num_parts*num_cities) for _ in range(num_cities)]
-       for _ in range(num_cities)]
+# ------------------------- Ant Colony (classic) ---------------------------
 
-# --- PSO particle structure ---
-particles = []
-for _ in range(num_parts):
-    a = random.uniform(*alpha_range)
-    b = random.uniform(*beta_range)
-    particles.append(
-        {"pos":[a,b],"vel":[0.0,0.0],
-         "pbest_pos":[a,b],"pbest_fit":float("inf")}
-    )
+def nearest_neighbor(dist: Matrix) -> float:
+    n = len(dist)
+    best = math.inf
+    for s in range(n):
+        unv = set(range(n)) - {s}
+        cur, l = s, 0.0
+        while unv:
+            # Use a small value instead of zero for distance
+            nxt = min(unv, key=lambda j: max(0.1, dist[cur][j]))
+            l += max(0.1, dist[cur][nxt])  # Avoid adding zeros
+            unv.remove(nxt)
+            cur = nxt
+        best = min(best, l)
+    return best
 
-# --- global best seed with nearest-neighbour tour ---
-g_best_tour = nearest_neighbour_start()
-g_best_len  = tour_length(g_best_tour)
-g_best_pos  = [particles[0]["pos"][0], particles[0]["pos"][1]]  # placeholder
+def ant_colony(alpha: float, beta: float, *, ants: int = 10, iterations: int = 200, rho: float = 0.1, Q: float = 1.0) -> Tuple[Tour, float]:
+    n = num_cities
 
-# ---------- main loop ----------
-for _ in range(max_it):
-    # (1) global evaporation once
-    for i in range(num_cities):
-        for j in range(i+1, num_cities):
-            tau[i][j] = tau[j][i] = (1.0 - rho) * tau[i][j]
+    
+    # Precompute heuristic information (inverse distance)
+    eta = [[0 if i == j else (1.0 / max(0.1, dist_matrix[i][j])) for j in range(n)] for i in range(n)]
+    
+    # Initialize pheromone trails
+    tau0 = 1.0 / (n * max(0.1, nearest_neighbor(dist_matrix)))  # Avoid div by zero
+    tau = [[tau0] * n for _ in range(n)]
+    
+    # Track best tour
+    best_tour, best_len = None, math.inf
+    
+    
+    # Build candidate lists for efficient tour construction
+    candidate_size = min(30, max(20, n // 5))
+    candidates = build_candidate_lists(dist_matrix, candidate_size)
+    
+    
+    for iteration in range(iterations):
+        
+            
+            
+        tours, lengths = [], []
+        for ant in range(ants):
+            start = random.randrange(n)
+            tour = [start]
+            unv = set(range(n)) - {start}
+            cur = start
+            
+            while unv:
+                # First try using candidate list (90% of the time)
+                if random.random() < 0.9:
+                    # Filter candidates that are still unvisited
+                    available_candidates = [c for c in candidates[cur] if c in unv]
+                    
+                    if available_candidates:
+                        probs, total = [], 0.0
+                        
+                        for j in available_candidates:
+                            # Make sure we don't get NaN from 0^0 when alpha or beta is 0
+                            tau_val = max(1e-10, tau[cur][j]) ** alpha if alpha > 0 else 1.0
+                            eta_val = max(1e-10, eta[cur][j]) ** beta if beta > 0 else 1.0
+                            p = tau_val * eta_val
+                            probs.append((j, p))
+                            total += p
+                        
+                        # Select next city using candidates
+                        if total > 1e-10:
+                            r = random.random() * total
+                            cum = 0.0
+                            nxt = available_candidates[0]  # Default
+                            for city, p in probs:
+                                cum += p
+                                if cum >= r:
+                                    nxt = city
+                                    break
+                            
+                            tour.append(nxt)
+                            unv.remove(nxt)
+                            cur = nxt
+                            continue
+                
+                # Fallback: check all remaining unvisited cities
+                cities_to_check = list(unv)
+                
+                    
+                probs, total = [], 0.0
+                for j in cities_to_check:
+                    tau_val = max(1e-10, tau[cur][j]) ** alpha if alpha > 0 else 1.0
+                    eta_val = max(1e-10, eta[cur][j]) ** beta if beta > 0 else 1.0
+                    p = tau_val * eta_val
+                    probs.append((j, p))
+                    total += p
+                
+                # If total is too small, just pick randomly
+                if total < 1e-10:
+                    nxt = random.choice(list(unv))
+                else:
+                    r = random.random() * total
+                    cum = 0.0
+                    nxt = cities_to_check[0]  # Default
+                    for city, p in probs:
+                        cum += p
+                        if cum >= r:
+                            nxt = city
+                            break
+                tour.append(nxt)
+                unv.remove(nxt)
+                cur = nxt
+            
+            # Calculate tour length
+            l = length_of(tour, dist_matrix)
+            tours.append(tour)
+            lengths.append(l)
+            
+            if l < best_len:
+                best_tour, best_len = tour, l
+                
+            
+                    
+        
+        # Pheromone update with optimizations for large instances
+        # Evaporation phase
+        evap = 1 - rho
+        for i in range(n):
+            for j in range(i, n):  # Use symmetry to reduce computations
+                tau[i][j] *= evap
+                tau[j][i] = tau[i][j]  # Mirror updates
+        
+        # Deposit phase - use all tours regardless of instance size
+        for tour, l in zip(tours, lengths):
+            delta = Q / l
+            for i in range(n):
+                a, b = tour[i], tour[(i + 1) % n]
+                tau[a][b] += delta
+                tau[b][a] += delta  # Symmetric update
+        
+        # Continue running regardless of instance size
 
-    # (2) evaluate each particle (local colony of inner_aco_loops ants)
-    for p in particles:
-        alpha, beta = p["pos"]
-        delta = [[0.0]*num_cities for _ in range(num_cities)]
+    
+    
+    return best_tour, best_len
 
-        for _ in range(inner_aco_loops):
-            tour, L = construct_tour(alpha, beta, tau)
-            deposit = Q_const / L
-            for i in range(num_cities):
-                a, b = tour[i], tour[(i+1)%num_cities]
-                delta[a][b] += deposit
-                delta[b][a] += deposit
-            if L < p["pbest_fit"]:
-                p["pbest_fit"], p["pbest_pos"] = L, p["pos"][:]
-            if L < g_best_len:
-                g_best_len, g_best_tour, g_best_pos = L, tour[:], p["pos"][:]
+# ---------------------- Particle Swarm (2‑D search) -----------------------
 
-        # add accumulated pheromone deposit for this particle
-        for i in range(num_cities):
-            for j in range(i+1, num_cities):
-                tau[i][j] += delta[i][j]
-                tau[j][i]  = tau[i][j]
+def pso_find_alpha_beta(*, swarm: int = 10, iters: int = 30, w: float = 0.7, c1: float = 2.0, c2: float = 2.0):
+    """PSO for finding ideal alpha/beta ACO parameters"""
+    
+    n = num_cities
+    
+    # Bounds as in the paper: α, β ∈ [0,2]
+    ALB, AUB = 0.0, 2.0
+    BLB, BUB = 0.0, 2.0
+    
+    particles = []
+   
+    
+    # Initialize particles with random positions
+    for i in range(swarm):
+        a = random.uniform(ALB, AUB)
+        b = random.uniform(BLB, BUB)
+        
+            
+        va, vb = random.uniform(-0.2, 0.2), random.uniform(-0.2, 0.2)
+        particles.append({'pos':[a,b], 'vel':[va,vb], 'best':[a,b], 'best_val':math.inf})
+        
+    gbest, gbest_val = [None, None], math.inf
+    
+    
+    # Use consistent ACO iterations 
+    aco_iterations = 40
+    
+    for iteration in range(iters):
+        
+        
+        # Evaluate all particles 
+        particles_to_evaluate = particles
+            
+        for p_idx, p in enumerate(particles_to_evaluate):
+            # Evaluate all particles
+                
+           
+            aco_start = time.time()
+            _, val = ant_colony(p['pos'][0], p['pos'][1], ants=10, iterations=aco_iterations)
+            aco_time = time.time() - aco_start
+            
+      
+            
+            if val < p['best_val']:
+                p['best_val'], p['best'] = val, p['pos'][:]
+            
+                
+                if val < gbest_val:
+                    gbest_val, gbest = val, p['pos'][:]
+                
+                    
+                
+        # Update particle positions with adaptive velocity control
+        # Reduce velocity magnitude as iterations progress for finer search
+        velocity_damper = max(0.5, 1.0 - (iteration / iters))
+        
+        for p in particles:
+            for d in (0,1):
+                r1, r2 = random.random(), random.random()
+                p['vel'][d] = (w * p['vel'][d] + c1 * r1 * (p['best'][d] - p['pos'][d]) +
+                              c2 * r2 * (gbest[d] - p['pos'][d]))
+                # Apply damping factor to velocity
+                p['vel'][d] *= velocity_damper
+                p['pos'][d] += p['vel'][d]
+            p['pos'][0] = max(ALB, min(AUB, p['pos'][0]))
+            p['pos'][1] = max(BLB, min(BUB, p['pos'][1]))
+            
+        
+        
+    
+    
+ 
 
-    # (3) PSO velocity–position update
-    for p in particles:
-        for d in (0,1):
-            r1, r2 = random.random(), random.random()
-            p["vel"][d] = (
-                w * p["vel"][d]
-                + c1 * r1 * (p["pbest_pos"][d] - p["pos"][d])
-                + c2 * r2 * (g_best_pos[d]   - p["pos"][d])
-            )
-            p["pos"][d] += p["vel"][d]
-            low, high = alpha_range if d==0 else beta_range
-            p["pos"][d] = max(low, min(high, p["pos"][d]))
+        
+    
+    return gbest[0], gbest[1]
 
-# ---------- final 3-Opt ----------
-g_best_tour = three_opt(g_best_tour)
-g_best_len  = tour_length(g_best_tour)
+# --------------------------- MAIN BODY ------------------------------------
 
-# ---------- hand results to wrapper ----------
-tour         = g_best_tour
-tour_length  = g_best_len
-added_note  += (f"Hybrid PSO–ACO–3Opt  m={num_parts}, colony={inner_aco_loops}, "
-                f"iter={max_it}.  Final α,β≈{g_best_pos}")
-# --------------------  END TSP CODE  --------------------
+seed = int(time.time()) % 2**32
+random.seed(seed)
+
+# Initialize algorithm parameters
+max_it = 800   # ACO iterations after PSO phase
+num_parts = 10  # PSO swarm size
+num_ants = 10   # Ants per ACO iteration
+
+
+
+
+# 2. Stage 1 – PSO searches best (alpha, beta)
+start_pso = time.time()
+
+# Run PSO to find best parameters regardless of instance size
+alpha, beta = pso_find_alpha_beta(swarm=num_parts, iters=20)
+pso_time = time.time() - start_pso
+
+
+# 3. Stage 2 – Run a longer ACO with that pair
+start_aco = time.time()
+best_tour, best_len = ant_colony(alpha, beta, ants=num_ants, iterations=max_it)
+aco_time = time.time() - start_aco
+
+
+# 4. Stage 3 – Apply optimized 3‑Opt
+start_3opt = time.time()
+
+# Set a consistent time limit for 3-opt regardless of problem size
+opt_time_limit = 300  # Use full 5 minutes for all instances
+
+
+best_tour, best_len = three_opt(best_tour, dist_matrix, max_time_seconds=opt_time_limit)
+opt_time = time.time() - start_3opt
+
+
+# 5. Deliver reserved variables
+tour = best_tour
+tour_length = int(round(best_len))
+
+# Print total execution breakdown
+total_time = pso_time + aco_time + opt_time
+print(f"\n[EXECUTION SUMMARY]")
+print(f"PSO phase: {pso_time:.2f}s ({(pso_time/total_time)*100:.1f}% of total)")
+print(f"ACO phase: {aco_time:.2f}s ({(aco_time/total_time)*100:.1f}% of total)")
+print(f"3-opt phase: {opt_time:.2f}s ({(opt_time/total_time)*100:.1f}% of total)")
+print(f"Total algorithm time: {total_time:.2f}s")
+
+# Optional: annotate
+added_note += (f"\nEnhanced PSO‑ACO‑3Opt: α={alpha:.3f}, β={beta:.3f}, "
+               f"seed={seed}, max_it={max_it}, ants={num_ants}, swarm={num_parts}. "
+               f"Uses candidate lists and delta evaluation with consistent behavior for all city sizes.")
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

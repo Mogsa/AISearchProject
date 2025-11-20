@@ -16,7 +16,6 @@ import sys
 import time
 import random
 from datetime import datetime
-import math
 
 ############ START OF SECTOR 0 (IGNORE THIS COMMENT)
 ############
@@ -159,7 +158,7 @@ def read_in_algorithm_codes_and_tariffs(alg_codes_file):
 ############
 ############ END OF SECTOR 0 (IGNORE THIS COMMENT)
 
-input_file = "AISearchfile180.txt"
+input_file = "AISearchfile012.txt"
 
 ############ START OF SECTOR 1 (IGNORE THIS COMMENT)
 ############
@@ -394,7 +393,7 @@ def two_opt_first(tour, D):
 num_ants = 25
 max_it   = 800
 
-alpha, beta = 1.5, 2.5
+alpha, beta = 1, 2
 rho     = 0.15               
 q0      = 0.90               
 p_best  = 0.05               

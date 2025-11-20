@@ -1,0 +1,10 @@
+USER = fnlz75 (Morgan Rosca),
+ALGORITHM CODE = PS, NAME OF CITY-FILE = AISearchfile058.txt,
+SIZE = 58, TOUR LENGTH = 25845,
+42,37,30,52,39,44,5,1,27,28,7,57,4,54,47,24,36,3,0,9,33,22,12,8,21,48,45,35,14,53,46,34,23,13,26,20,29,19,56,15,55,31,49,43,32,17,10,2,6,38,18,51,16,50,25,41,11,40,
+NOTE = 
+Enhanced PSO‑ACO‑3Opt: α=1.124, β=1.293, seed=1746044743, max_it=800, ants=10, swarm=10. Uses candidate lists and delta evaluation with consistent behavior for all city sizes.
+The parameter values are 'max_it' = 800 and 'num_parts' = 10.
+RUN-TIME = 13.7 seconds.
+DATE-TIME = 30/04/2025-23:25:57.
+CERTIFICATE = 2770.

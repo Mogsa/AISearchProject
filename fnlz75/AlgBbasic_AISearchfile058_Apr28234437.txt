@@ -1,9 +1,0 @@
-USER = fnlz75 (Morgan Rosca),
-ALGORITHM CODE = PS, NAME OF CITY-FILE = AISearchfile058.txt,
-SIZE = 58, TOUR LENGTH = 53301,
-45,37,42,30,6,10,17,26,46,28,7,4,3,21,8,48,44,54,47,57,33,1,27,0,50,18,2,23,53,51,9,52,24,36,12,16,11,41,40,25,38,43,55,56,15,19,49,31,35,14,32,29,20,13,5,39,22,34,
-NOTE = PSO: max_it=1000, num_parts=60, w=0.5, c1=1.0, c2=1.0.
-The parameter values are 'max_it' = None and 'num_parts' = 60.
-RUN-TIME = 1.0 seconds.
-DATE-TIME = 28/04/2025-23:44:37.
-CERTIFICATE = 2652.

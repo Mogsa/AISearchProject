@@ -10,4 +10,5 @@ DE, differential evolution, 6,
 AS, A-star search, 7,
 IA, iterative deepening A-star search, 8,
 AC, ant colony optimization, 9,
-PS, particle swarm optimization, 10
+PS, particle swarm optimization, 10,
+LK, Lin-Kernighan, 10

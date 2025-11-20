@@ -1,0 +1,10 @@
+USER = fnlz75 (Morgan Rosca),
+ALGORITHM CODE = PS, NAME OF CITY-FILE = AISearchfile042.txt,
+SIZE = 42, TOUR LENGTH = 1196,
+9,15,14,32,30,24,39,4,6,2,28,21,16,31,8,33,37,19,0,11,29,27,25,23,35,34,38,13,10,12,5,22,1,20,26,3,7,40,18,17,41,36,
+NOTE = 
+PSO‑ACO‑3Opt: α=1.378, β=1.927, seed=1745939309, max_it=800, ants=10, swarm=10.
+The parameter values are 'max_it' = 800 and 'num_parts' = 10.
+RUN-TIME = 16.6 seconds.
+DATE-TIME = 29/04/2025-18:08:45.
+CERTIFICATE = 2212.

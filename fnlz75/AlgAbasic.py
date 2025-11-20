@@ -16,7 +16,6 @@ import sys
 import time
 import random
 from datetime import datetime
-import math
 
 ############ START OF SECTOR 0 (IGNORE THIS COMMENT)
 ############
@@ -159,7 +158,7 @@ def read_in_algorithm_codes_and_tariffs(alg_codes_file):
 ############
 ############ END OF SECTOR 0 (IGNORE THIS COMMENT)
 
-input_file = "AISearchfile535.txt"
+input_file = "AISearchfile012.txt"
 
 ############ START OF SECTOR 1 (IGNORE THIS COMMENT)
 ############
@@ -357,7 +356,7 @@ added_note = ""
 ############ END OF SECTOR 9 (IGNORE THIS COMMENT)
 
 # ----- PARAMETERS -----
-# heurstics based on paper
+
 if   num_cities <= 60:      num_ants = num_cities
 elif num_cities <= 200:     num_ants = max(10, int(0.3*num_cities))
 else:                       num_ants = 100
@@ -365,8 +364,8 @@ else:                       num_ants = 100
 max_it = int(40000 / num_ants)
 
 alpha = 1.0                 # pheromone importance
-beta  = 5.0                 # heuristic importance (visibility)
-rho   = 0.5                 # pheromone evaporation rate (0<rho<=1)
+beta  = 5.0                 # heuristic importance 
+rho   = 0.5                 # pheromone evaporation rate 
 Q     = 100                 # pheromone deposit factor
 elitist_weight = 5          # additional weight deposited on best-so-far tour
 
@@ -471,7 +470,6 @@ tour_length = best_length
 
 # add extra parameter information so it appears in the produced tour files
 added_note = added_note + f"Elitist weight = {elitist_weight}, alpha = {alpha}, beta = {beta}, rho = {rho}, Q = {Q}."
-
 
 
 ############ START OF SECTOR 10 (IGNORE THIS COMMENT)
@@ -592,3 +590,4 @@ f.write("CERTIFICATE = {0}.\n".format(certificate))
 f.close()
 print("I have successfully written your tour to the tour file:\n   " + output_file_name + ".")
 
+############ END OF SECTOR 10 (IGNORE THIS COMMENT)
